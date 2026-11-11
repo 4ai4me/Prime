@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, "Noto Sans KR", "Plus Jakarta Sans",
+    "Noto Sans Math", "Cambria Math", "STIX Two Math", "Malgun Gothic", -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Pretendard Variable", Pretendard, "Noto Sans KR",
+    "Noto Sans Math", "Cambria Math", "STIX Two Math", monospace;
+}
+
+:root {
+  --ink: #0f172a;
+  --muted: #475569;
+  --blue: #2563eb;
+  --blue-light: #eff6ff;
+  --paper: #ffffff;
+  --bg: #f8fafc;
+  --line: #e2e8f0;
+  --good: #059669;
+  --good-bg: #ecfdf5;
+  --warn: #d97706;
+  --warn-bg: #fffbeb;
+  --bad: #e11d48;
+  --bad-bg: #fff1f2;
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.03), 0 8px 24px -4px rgba(15, 23, 42, 0.05);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Pretendard Variable", Pretendard, "Noto Sans KR", "Plus Jakarta Sans",
+    "Noto Sans Math", "Cambria Math", "STIX Two Math", "Malgun Gothic", -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif;
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.045) 0px, transparent 45%),
+    radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.045) 0px, transparent 45%);
+  font-size: 16px;
+  line-height: 1.65;
+  letter-spacing: -0.005em;
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  font-size: 16px; /* Prevents iOS Safari auto-zoom on focus */
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
+  transition:
+    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains Mono", "Pretendard Variable", Pretendard, "Noto Sans KR",
+    "Noto Sans Math", "Cambria Math", "STIX Two Math", sans-serif;
+}
+
+/* 온전한 루트(근호 + 상단 윗줄 Vinculum) 수식 렌더링 스타일 */
+.math-radical {
+  display: inline-flex;
+  align-items: baseline;
+  vertical-align: baseline;
+  white-space: nowrap;
+  line-height: 1;
+  margin: 0 0.04em;
+}
+
+.math-radical-surd {
+  display: inline-flex;
+  align-self: stretch;
+  align-items: stretch;
+  width: 0.58em;
+  margin-right: -0.5px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.math-radical-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.math-radical-body {
+  display: inline-block;
+  border-top: 1.65px solid currentColor;
+  padding: 0.07em 0.15em 0 0.08em;
+  line-height: 1.06;
+}
+
+.hero-bg {
+  background-color: #090d16;
+  background-image:
+    radial-gradient(ellipse at 85% 15%, rgba(167, 139, 250, 0.18), transparent 45%),
+    radial-gradient(ellipse at 15% 85%, rgba(99, 102, 241, 0.14), transparent 50%),
+    linear-gradient(135deg, #090d16 0%, #0f172a 60%, #1e293b 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-bg::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 31px, #ffffff 31px 32px),
+    repeating-linear-gradient(90deg, transparent 0 31px, #ffffff 31px 32px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Print optimization for both standard worksheet print and individual student report print */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #111827 !important;
+  }
+
+  .hero-bg {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #111827 !important;
+    border-bottom: 2px solid #111827 !important;
+  }
+
+  .hero-bg * {
+    color: #111827 !important;
+  }
+
+  .hero-bg::after {
+    display: none !important;
+  }
+
+  .print-card {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    break-inside: avoid;
+  }
+
+  body.printing-report #app-shell {
+    display: none !important;
+  }
+
+  body.printing-report #print-report-sheet {
+    display: block !important;
+    padding: 0 8mm !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}

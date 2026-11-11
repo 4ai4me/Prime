@@ -1,0 +1,422 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 3 && id.size() <= 120 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Sole Admin Teacher (Google email liha1634@gmail.com + runtime owner fallback)
+    // 익명 로그인 학생에게는 email 항목이 없으므로 .get(이름, 기본값)으로 읽음
+    // (직접 읽으면 규칙 '오류'로 집계되어, 정상적인 거부와 진짜 오류를 구분하기 어려워짐)
+    function isAdmin() {
+      return isSignedIn() &&
+        request.auth.token.get('email_verified', false) == true &&
+        (
+          request.auth.token.get('email', '') == 'liha1634@gmail.com' ||
+          request.auth.token.get('email', '') == 'planitia4ai@gmail.com' ||
+          exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        );
+    }
+
+    // 이 가입 문서의 주인(학생 익명 계정)인지
+    function isRegistrationOwner(data) {
+      return isSignedIn() && data.get('uid', '') == request.auth.uid;
+    }
+
+    // 생년월일 비교: 숫자만 남겨 같거나, 6자리(YYMMDD)와 8자리(YYYYMMDD)의 뒤 6자리가 같으면 일치
+    function birthDateMatches(claim, stored) {
+      let s = stored.replace('[^0-9]', '');
+      return claim.matches('^[0-9]{6,8}$') &&
+        (
+          claim == s ||
+          (claim.size() == 6 && s.size() == 8 && s.matches('^[0-9]{2}' + claim + '$')) ||
+          (claim.size() == 8 && s.size() == 6 && claim.matches('^[0-9]{2}' + s + '$'))
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 학생 비밀번호 (원문은 저장하지 않고 SHA-256 해시만 저장)
+    //   app_settings/student_auth.passwordRequired 가 true일 때만 가입 시 필수
+    // ------------------------------------------------------------------
+    function isPasswordHash(v) {
+      return v is string && v.matches('^[0-9a-f]{64}$');
+    }
+
+    function studentPasswordRequired() {
+      return exists(/databases/$(database)/documents/app_settings/student_auth) &&
+        get(/databases/$(database)/documents/app_settings/student_auth).data.get('passwordRequired', false) == true;
+    }
+
+    function isValidStudentRegistration(data) {
+      return data.keys().hasAll([
+          'studentKey', 'school', 'grade', 'classNum', 'studentNum',
+          'birthDate', 'name', 'deviceHash', 'ipAddress', 'userAgent',
+          'status', 'worksheetJson', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'studentKey', 'school', 'grade', 'classNum', 'studentNum',
+          'birthDate', 'name', 'deviceHash', 'ipAddress', 'userAgent',
+          'status', 'worksheetJson', 'createdAt', 'updatedAt',
+          'uid', 'claimName', 'claimBirthDate', 'passwordHash', 'claimPasswordHash'
+        ]) &&
+        data.get('uid', '') is string && data.get('uid', '').size() <= 128 &&
+        (data.get('passwordHash', '') == '' || isPasswordHash(data.get('passwordHash', ''))) &&
+        data.get('claimPasswordHash', '') is string &&
+        (data.get('claimPasswordHash', '') == '' || data.get('claimPasswordHash', '').matches('^[0-9a-f]{64}:[A-Za-z0-9]{8,64}$')) &&
+        data.get('claimName', '') is string && data.get('claimName', '').size() <= 25 &&
+        data.get('claimBirthDate', '') is string && data.get('claimBirthDate', '').matches('^[0-9]{0,8}$') &&
+        data.studentKey is string && data.studentKey.size() >= 3 && data.studentKey.size() <= 120 && data.studentKey.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.school is string && data.school.size() >= 2 && data.school.size() <= 40 &&
+        data.grade is string && data.grade.size() >= 1 && data.grade.size() <= 5 &&
+        data.classNum is string && data.classNum.size() >= 1 && data.classNum.size() <= 10 &&
+        data.studentNum is string && data.studentNum.size() >= 1 && data.studentNum.size() <= 10 &&
+        data.birthDate is string && data.birthDate.size() >= 6 && data.birthDate.size() <= 12 &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 25 &&
+        data.deviceHash is string && data.deviceHash.size() >= 6 && data.deviceHash.size() <= 80 && data.deviceHash.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ipAddress is string && data.ipAddress.size() >= 3 && data.ipAddress.size() <= 64 &&
+        data.userAgent is string && data.userAgent.size() >= 1 && data.userAgent.size() <= 250 &&
+        data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'rejected') &&
+        data.worksheetJson is string && data.worksheetJson.size() >= 2 && data.worksheetJson.size() <= 150000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDeviceLock(data) {
+      return data.keys().hasAll(['deviceHash', 'studentKey', 'ipAddress', 'createdAt']) &&
+        data.keys().hasOnly(['deviceHash', 'studentKey', 'ipAddress', 'createdAt']) &&
+        data.deviceHash is string && data.deviceHash.size() >= 6 && data.deviceHash.size() <= 80 && data.deviceHash.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.studentKey is string && data.studentKey.size() >= 3 && data.studentKey.size() <= 120 && data.studentKey.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ipAddress is string && data.ipAddress.size() >= 3 && data.ipAddress.size() <= 64 &&
+        data.createdAt is timestamp;
+    }
+
+    // Connection test path
+    match /test/{docId} {
+      allow get: if isValidId(docId);
+      allow list, create, update, delete: if false;
+    }
+
+    // Admin lookup collection
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && request.auth.uid == adminId;
+      allow list, create, update, delete: if false;
+    }
+
+    // Student Registrations Collection
+    match /student_registrations/{studentKey} {
+      // 읽기: 교사 또는 문서 주인(학생 본인)만. 없는 문서 확인(가입 여부)은 로그인한 사용자 누구나
+      allow get: if isValidId(studentKey) &&
+        (isAdmin() || (isSignedIn() && (resource == null || isRegistrationOwner(resource.data))));
+      // 목록 조회: 교사만
+      allow list: if isAdmin();
+
+      // 학생 가입 신청: 반드시 'pending'으로 시작하고, 본인 익명 계정 uid를 주인으로 기록
+      allow create: if isValidId(studentKey) &&
+        isSignedIn() &&
+        isValidStudentRegistration(incoming()) &&
+        incoming().studentKey == studentKey &&
+        incoming().status == 'pending' &&
+        incoming().uid == request.auth.uid &&
+        incoming().get('claimPasswordHash', '') == '' &&
+        (!studentPasswordRequired() || isPasswordHash(incoming().get('passwordHash', ''))) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        existsAfter(/databases/$(database)/documents/device_locks/$(incoming().deviceHash));
+
+      allow update: if isValidId(studentKey) &&
+        isValidStudentRegistration(incoming()) &&
+        incoming().studentKey == existing().studentKey &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          // 1) 교사: 승인·반려·평가
+          isAdmin() ||
+          // 2) 승인된 학생 본인: 접속 정보만 갱신
+          //    (활동지는 차시 문서에 저장. 예전 worksheetJson은 보존용이며 학생이 고칠 수 없음 —
+          //     그 안의 예전 교사 평가를 학생이 바꾸지 못하도록)
+          (
+            isRegistrationOwner(existing()) &&
+            existing().status == 'approved' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt', 'deviceHash', 'ipAddress', 'userAgent'])
+          ) ||
+          // 2-1) 학생 본인(승인 대기 포함): 비밀번호가 없을 때만 처음 설정 (변경·삭제는 교사 초기화로만)
+          (
+            isRegistrationOwner(existing()) &&
+            existing().get('passwordHash', '') == '' &&
+            isPasswordHash(incoming().get('passwordHash', '')) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['passwordHash', 'updatedAt'])
+          ) ||
+          // 3) 다른 기기·브라우저에서 재접속: 이름·생년월일이 맞으면 이 익명 계정으로 연결
+          (
+            isSignedIn() &&
+            incoming().uid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['uid', 'claimName', 'claimBirthDate', 'claimPasswordHash', 'updatedAt']) &&
+            incoming().claimName == existing().name &&
+            birthDateMatches(incoming().claimBirthDate, existing().birthDate) &&
+            // 비밀번호가 설정된 학생: 이번 요청에 새로 담긴 "해시:임의값" 증명의 해시가 저장된 해시와 같아야 함
+            // (임의값이 매번 바뀌므로 문서에 남아 있는 예전 증명으로는 통과할 수 없음)
+            (
+              existing().get('passwordHash', '') == '' ||
+              (
+                incoming().diff(existing()).affectedKeys().hasAny(['claimPasswordHash']) &&
+                incoming().claimPasswordHash.split(':')[0] == existing().passwordHash
+              )
+            )
+          )
+        );
+
+      allow delete: if isValidId(studentKey) && isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // 차시별 분리 저장 문서
+    //   student_registrations/{studentKey}/func_lessons/l1..l7, teacher
+    //   student_registrations/{studentKey}/props_lessons/l1..l7, teacher
+    //   student_registrations/{studentKey}/prime_lessons/l1..l6, teacher  (중1 소인수분해 Prime, 2026-11-11~)
+    // l1..l7: 승인된 학생 본인(또는 교사)만 쓰기 / teacher: 교사만 쓰기
+    // 읽기: 교사 또는 학생 본인
+    // ------------------------------------------------------------------
+    function registrationData(studentKey) {
+      return get(/databases/$(database)/documents/student_registrations/$(studentKey)).data;
+    }
+
+    // 가입 문서가 없으면(삭제된 학생 등) 오류 대신 '본인 아님'으로 판단
+    function isStudentOwnerOf(studentKey) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/student_registrations/$(studentKey)) &&
+        registrationData(studentKey).get('uid', '') == request.auth.uid;
+    }
+
+    function isLessonCollection(course) {
+      return course == 'func_lessons' || course == 'props_lessons' || course == 'prime_lessons';
+    }
+
+    function isValidLessonDoc(data, studentKey, docId) {
+      return data.keys().hasAll(['studentKey', 'lesson', 'schemaVersion', 'data', 'clientUpdatedAt', 'updatedAt']) &&
+        data.keys().hasOnly(['studentKey', 'lesson', 'schemaVersion', 'data', 'clientUpdatedAt', 'updatedAt']) &&
+        data.studentKey == studentKey &&
+        data.lesson is int && ('l' + string(data.lesson)) == docId &&
+        data.schemaVersion is int && data.schemaVersion >= 1 && data.schemaVersion <= 100 &&
+        data.data is string && data.data.size() >= 2 && data.data.size() <= 200000 &&
+        data.clientUpdatedAt is string && data.clientUpdatedAt.size() <= 40 &&
+        data.updatedAt == request.time;
+    }
+
+    function isValidTeacherDoc(data, studentKey) {
+      return data.keys().hasAll(['studentKey', 'schemaVersion', 'data', 'updatedAt']) &&
+        data.keys().hasOnly(['studentKey', 'schemaVersion', 'data', 'updatedAt']) &&
+        data.studentKey == studentKey &&
+        data.schemaVersion is int && data.schemaVersion >= 1 && data.schemaVersion <= 100 &&
+        data.data is string && data.data.size() >= 2 && data.data.size() <= 100000 &&
+        data.updatedAt == request.time;
+    }
+
+    match /student_registrations/{studentKey}/{course}/{docId} {
+      allow get, list: if isValidId(studentKey) && isLessonCollection(course) &&
+        (isAdmin() || isStudentOwnerOf(studentKey));
+
+      // 차시 내용: 승인된 학생 본인 또는 교사
+      allow create, update: if isValidId(studentKey) && isLessonCollection(course) &&
+        docId.matches('^l[1-7]$') &&
+        isValidLessonDoc(incoming(), studentKey, docId) &&
+        (
+          isAdmin() ||
+          (isStudentOwnerOf(studentKey) && registrationData(studentKey).get('status', '') == 'approved')
+        );
+
+      // 교사 평가·메모: 교사만
+      allow create, update: if isValidId(studentKey) && isLessonCollection(course) &&
+        docId == 'teacher' &&
+        isValidTeacherDoc(incoming(), studentKey) &&
+        isAdmin();
+
+      allow delete: if isLessonCollection(course) && isAdmin();
+    }
+
+    // 교사 화면: 모든 학생의 차시 문서를 한 번에 조회 (collection group)
+    match /{path=**}/func_lessons/{docId} {
+      allow read: if isAdmin();
+    }
+    match /{path=**}/props_lessons/{docId} {
+      allow read: if isAdmin();
+    }
+    match /{path=**}/prime_lessons/{docId} {
+      allow read: if isAdmin();
+    }
+
+    // Device / MAC Lock Collection (Permits shared computer lab/cart tablets while logging device identity)
+    match /device_locks/{deviceHash} {
+      allow get: if isValidId(deviceHash) && isSignedIn();
+      allow list: if isAdmin();
+
+      allow create: if isValidId(deviceHash) &&
+        isSignedIn() &&
+        isValidDeviceLock(incoming()) &&
+        incoming().deviceHash == deviceHash &&
+        incoming().createdAt == request.time &&
+        existsAfter(/databases/$(database)/documents/student_registrations/$(incoming().studentKey));
+
+      allow update: if isValidId(deviceHash) &&
+        isSignedIn() &&
+        isValidDeviceLock(incoming()) &&
+        (
+          isAdmin() ||
+          incoming().deviceHash == existing().deviceHash
+        );
+
+      allow delete: if isValidId(deviceHash) && isAdmin();
+    }
+
+    function isValidAccessLog(data) {
+      return data.keys().hasAll([
+          'logId', 'studentKey', 'school', 'grade', 'classNum', 'studentNum',
+          'name', 'eventType', 'status', 'deviceHash', 'ipAddress', 'userAgent', 'createdAt'
+        ]) &&
+        data.logId is string && data.logId.size() >= 3 && data.logId.size() <= 120 &&
+        data.studentKey is string && data.studentKey.size() >= 3 && data.studentKey.size() <= 120 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 50 &&
+        data.eventType is string && data.eventType in ['login', 'register', 'resume', 'save'] &&
+        data.status is string && data.status in ['pending', 'approved', 'rejected', 'teacher'] &&
+        data.createdAt is timestamp;
+    }
+
+    // Student Real-time Access Logs Collection (for audit trail and morning/afternoon monitoring)
+    match /student_access_logs/{logId} {
+      // 접속 기록은 교사만 열람
+      allow get, list: if isAdmin();
+      allow create: if isValidId(logId) &&
+        isSignedIn() &&
+        isValidAccessLog(incoming()) &&
+        incoming().logId == logId &&
+        incoming().createdAt == request.time;
+      allow update, delete: if isAdmin();
+    }
+
+    function isValidLessonAccessSetting(data) {
+      return data.keys().hasAll(['l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'updatedBy', 'updatedAt']) &&
+        data.keys().hasOnly(['l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'updatedBy', 'updatedAt']) &&
+        data.l1 is bool &&
+        data.l2 is bool &&
+        data.l3 is bool &&
+        data.l4 is bool &&
+        data.l5 is bool &&
+        data.l6 is bool &&
+        data.l7 is bool &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 120 &&
+        data.updatedAt is timestamp;
+    }
+
+    // Func 전용 차시 잠금 (2026-11-05~, 1~8차시). Props와 함께 쓰던 lesson_access(7칸)는 그대로 둠
+    function isValidFuncLessonAccessSetting(data) {
+      return data.keys().hasAll(['l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'l8', 'updatedBy', 'updatedAt']) &&
+        data.keys().hasOnly(['l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', 'l8', 'updatedBy', 'updatedAt']) &&
+        data.l1 is bool &&
+        data.l2 is bool &&
+        data.l3 is bool &&
+        data.l4 is bool &&
+        data.l5 is bool &&
+        data.l6 is bool &&
+        data.l7 is bool &&
+        data.l8 is bool &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 120 &&
+        data.updatedAt is timestamp;
+    }
+
+    // Func 반별 차시 잠금 (2026-11-09~). classes = { '학교|학년|반': { l1..l8 } }
+    // 교사만 쓰므로 반마다의 칸은 앱이 읽을 때 검사(칸이 틀린 반은 무시하고 전체 설정을 따름)
+    function isValidFuncClassLessonAccessSetting(data) {
+      return data.keys().hasAll(['classes', 'updatedBy', 'updatedAt']) &&
+        data.keys().hasOnly(['classes', 'updatedBy', 'updatedAt']) &&
+        data.classes is map &&
+        data.classes.size() <= 60 &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 120 &&
+        data.updatedAt is timestamp;
+    }
+
+    // Prime(중1 소인수분해) 전용 차시 잠금 (2026-11-11~, 1~6차시)
+    function isValidPrimeLessonAccessSetting(data) {
+      return data.keys().hasAll(['l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'updatedBy', 'updatedAt']) &&
+        data.keys().hasOnly(['l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'updatedBy', 'updatedAt']) &&
+        data.l1 is bool &&
+        data.l2 is bool &&
+        data.l3 is bool &&
+        data.l4 is bool &&
+        data.l5 is bool &&
+        data.l6 is bool &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 120 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStudentAuthSetting(data) {
+      return data.keys().hasAll(['passwordRequired', 'updatedBy', 'updatedAt']) &&
+        data.keys().hasOnly(['passwordRequired', 'updatedBy', 'updatedAt']) &&
+        data.passwordRequired is bool &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 120 &&
+        data.updatedAt is timestamp;
+    }
+
+    // Classroom-wide Lesson Access ON/OFF Settings (Readable by students, writable by Admin Teacher)
+    match /app_settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if false;
+      allow create, update: if settingId == 'lesson_access' &&
+        isValidLessonAccessSetting(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow delete: if settingId == 'lesson_access' && isAdmin();
+
+      // Func 전용 차시 잠금 (교사만 변경, 읽기는 위 allow get으로 누구나)
+      allow create, update: if settingId == 'func_lesson_access' &&
+        isValidFuncLessonAccessSetting(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow delete: if settingId == 'func_lesson_access' && isAdmin();
+
+      // Func 반별 차시 잠금 (교사만 변경, 읽기는 위 allow get으로 누구나 — 반 이름과 열림 여부만 있음)
+      allow create, update: if settingId == 'func_lesson_access_classes' &&
+        isValidFuncClassLessonAccessSetting(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow delete: if settingId == 'func_lesson_access_classes' && isAdmin();
+
+      // Prime(중1 소인수분해) 전용 차시 잠금 1~6차시 (2026-11-11~, 교사만 변경, 읽기는 위 allow get으로 누구나)
+      allow create, update: if settingId == 'prime_lesson_access' &&
+        isValidPrimeLessonAccessSetting(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow delete: if settingId == 'prime_lesson_access' && isAdmin();
+
+      // Prime 반별 차시 잠금 (형식은 Func 반별 잠금과 같음 — 반마다의 칸은 앱이 읽을 때 검사)
+      allow create, update: if settingId == 'prime_lesson_access_classes' &&
+        isValidFuncClassLessonAccessSetting(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow delete: if settingId == 'prime_lesson_access_classes' && isAdmin();
+
+      // 학생 비밀번호 사용 설정 (교사만 변경)
+      allow create, update: if settingId == 'student_auth' &&
+        isValidStudentAuthSetting(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+    }
+  }
+}
+

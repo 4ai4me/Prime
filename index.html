@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 탭 아이콘: 2×3 (외부 파일 없이 SVG를 직접 포함) -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%237c3aed'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-weight='700' font-size='28' fill='white' text-anchor='middle'%3E2%C3%973%3C/text%3E%3C/svg%3E"
+    />
+    <title>이하연 수학 교실 · Ⅰ. 소인수분해 — 중학교 1학년 탐구 프로젝트</title>
+    <meta
+      name="description"
+      content="중학교 1학년 소인수분해 단원(소수와 합성수, 소인수분해, 최대공약수와 최소공배수) 차시별 탐구 및 학생·교사 승인제 통합 플랫폼"
+    />
+    <meta property="og:title" content="이하연 수학 교실 · Ⅰ. 소인수분해 — 중학교 1학년 탐구 프로젝트" />
+    <meta property="og:description" content="중학교 1학년 소인수분해 단원 차시별 탐구 및 학생·교사 승인제 통합 학습 플랫폼" />
+    <meta property="og:type" content="website" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=Noto+Sans+Math&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // 배포 파일 주소 끝의 ?v= 는 화면을 바꿔 배포할 때마다 바꿉니다 (브라우저·GitHub Pages 캐시에 예전 파일이 남지 않도록)
+      window.__loadStaticBundle = function () {
+        if (window.__staticBundleLoaded) return;
+        window.__staticBundleLoaded = true;
+        var l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.href = './ghpages-app.css?v=20261111-prime-skeleton';
+        document.head.appendChild(l);
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = './ghpages-app.js?v=20261111-prime-skeleton';
+        document.head.appendChild(s);
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- 개발 실행·빌드 때는 vite.config.ts가 여기에 /src/main.tsx 를 넣습니다 (GitHub Pages에서는 배포 파일만 불러옴) -->
+    <script>
+      if (location.hostname.endsWith('github.io') || location.protocol === 'file:') {
+        window.__loadStaticBundle();
+      } else {
+        setTimeout(function () {
+          var root = document.getElementById('root');
+          if (root && !root.hasChildNodes()) {
+            window.__loadStaticBundle();
+          }
+        }, 1800);
+      }
+    </script>
+  </body>
+</html>

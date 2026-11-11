@@ -1,0 +1,76 @@
+# 이하연 수학 교실 — 중1 「Ⅰ. 소인수분해」 탐구 프로젝트 (Prime)
+
+중학교 1학년 소인수분해 단원 수업을 위한 **학생·교사 승인제 탐구 활동지 사이트**입니다.
+고등학교 함수 단원 사이트 [`4ai4me/Func`](https://4ai4me.github.io/Func/)와 같은 구조(가입 승인, 클라우드 자동 저장, 차시 잠금, 교사 기록실)를 그대로 옮겨 왔고, 학생 답안과 잠금 설정은 Prime 전용 칸에 따로 저장합니다.
+
+- 주소: `https://4ai4me.github.io/Prime/` (GitHub Pages 설정 후)
+- 현재 상태: **큰 틀만 완성** — 6개 차시 모두 "활동지 준비 중" 화면. 교과서 자료를 받는 대로 한 차시씩 채웁니다.
+
+---
+
+## 1. 단원 구성 (6차시)
+
+| 중단원 | 차시 | 교과서 소단원 | 덧붙임 활동 |
+|---|---|---|---|
+| 1. 소수와 합성수 | 1차시 | 소수란 무엇일까? | |
+| | 2차시 | 소수를 어떻게 찾을 수 있을까? | 신나는 놀이 & 수학 · 어떻게 색칠하면 될까? |
+| 2. 소인수분해 | 3차시 | 거듭제곱이란 무엇일까? | |
+| | 4차시 | 소인수분해는 어떻게 할까? | 교구 & 공학 도구 · 블록 코딩으로 소인수분해 하기 |
+| 3. 최대공약수와 최소공배수 | 5차시 | 소인수분해를 이용하여 최대공약수를 어떻게 구할까? | |
+| | 6차시 | 소인수분해를 이용하여 최소공배수를 어떻게 구할까? | |
+
+단원·차시 이름은 `src/lessons/curriculum.ts` 한 곳에서 관리합니다.
+
+## 2. 주요 기능 (Func와 같음)
+
+- **학생 가입·로그인**: 학교/학년/반/번호/생년월일/이름으로 가입 신청 → 선생님 승인 후 입장. 가입 정보는 Func·Props와 함께 써서, 이미 승인된 학생은 다시 가입하지 않아도 됩니다.
+- **자동 저장**: 입력을 멈추고 10초 뒤, 단계·차시 이동, 탭 전환·닫기 때 바뀐 차시만 저장. [지금 저장] 버튼.
+- **차시 잠금**: 교사가 1~6차시를 전체 또는 **반별로** 열고 잠급니다. 학생 화면에 새로고침 없이 바로 반영되고, 주소(`?lesson=5`) 직접 입력으로도 잠긴 차시에 들어갈 수 없습니다.
+- **학생 화면**: 중단원별로 묶은 차시 탭, 진행 현황, 「평가 결과」 창(선생님 점수·피드백), 수학 기호 입력기(×, ², ³ 등 중1용으로 줄임).
+- **교사 기록실**: 차시 잠금, 가입 승인·반려·삭제·비밀번호 초기화, 실시간 접속 기록, 학생별 1~6차시 진행 표, [답안 · 평가](차시별 답안 + 0~3점 평정 + 피드백 + 저장 버튼), 평가서 인쇄, CSV 내려받기.
+
+## 3. 저장 위치 (Firebase — Func·Props와 같은 프로젝트)
+
+| 무엇 | 위치 |
+|---|---|
+| 가입 정보 (공용) | `student_registrations/{studentKey}` |
+| 학생 답안 | `student_registrations/{studentKey}/prime_lessons/l1~l6` |
+| 교사 평가·메모 | `student_registrations/{studentKey}/prime_lessons/teacher` |
+| 전체 차시 잠금 | `app_settings/prime_lesson_access` |
+| 반별 차시 잠금 | `app_settings/prime_lesson_access_classes` |
+
+⚠️ **처음 쓰기 전에 보안 규칙 게시 필요**: 이 저장소의 `firestore.rules`를 Firebase 콘솔 → Firestore → 데이터베이스 `ai-studio-526dd59d-…` 선택 → 규칙 탭에 붙여 넣고 게시해야 Prime 답안·잠금이 저장됩니다. Func·Props의 기존 규칙은 그대로 두고 Prime 부분만 **추가**한 파일입니다. Func·Props 저장소의 `firestore.rules`에도 같은 내용을 넣어 세 파일을 같게 유지합니다.
+
+## 4. 폴더 구조
+
+```
+src/
+  App.tsx                    학생·교사 화면 전체 흐름 (로그인, 저장, 잠금)
+  lessons/
+    curriculum.ts            단원·차시 이름과 단계 (여기부터 고침)
+    index.tsx                차시 화면 연결표 (준비된 차시만 등록)
+    LessonPlaceholderView    "활동지 준비 중" 화면
+    ReflectionStep.tsx       공용 성찰 단계 (서술 2칸 + 도움 받은 정도)
+    answerLabels.ts          교사 화면·CSV 문항 이름표
+  components/                Func에서 가져온 화면 부품 + 교사 화면(TeacherView)
+  utils/
+    lessonAccess.ts          차시 잠금 계산
+    classLessonAccess.ts     반별 잠금
+    studentRecord.ts         학생 기록 형식·교사 평가
+    lessonStore.ts           Firebase 저장·불러오기
+    teacherRecords.ts        교사 표·CSV 계산
+```
+
+차시 자료를 채우는 순서는 `AGENTS.md`의 「차시 자료 채우는 순서」를 봅니다.
+
+## 5. 개발
+
+```bash
+bun install                 # 또는 npm install
+npm run dev                 # 개발 서버
+npx tsc --noEmit            # 타입 검사
+npx tsx --test src/**/*.test.ts src/**/*.test.tsx   # 단위 테스트
+npm run build               # 배포 파일(ghpages-app.js·css) 갱신
+```
+
+GitHub Pages는 `index.html` + `ghpages-app.js` + `ghpages-app.css`를 그대로 보여 줍니다. 화면을 바꿔 배포할 때마다 `index.html`의 `?v=` 값을 바꿉니다.
