@@ -35,17 +35,21 @@ import {
   checkOpen,
   checkPrep,
   checkProblem1,
+  checkTileOne,
+  checkTiles,
   divisorsOf,
+  L1_MIN_TILE_FEATURE,
   patchLesson1,
   type Confidence,
   type Lesson1State,
   type PrimeClass,
 } from './lesson1Logic';
 import { getCurriculumLesson } from './curriculum';
+import { TileBoard, TileRect } from './TileBoard';
 
 /**
  * 1차시 「소수란 무엇일까?」 (교과서 중단원 1. 소수와 합성수 ①)
- * 0 단원 열기·준비 학습 / 1 생각 열기 / 2 소수와 합성수의 뜻 / 3 문제 1 / 4 도전 / 5 성찰
+ * 0 단원 열기·준비 학습 / 1 생각 열기 / 2 소수와 합성수의 뜻 / 3 문제 1 / 4 도형(타일 배열) / 5 도전 / 6 성찰
  */
 
 const PRIME_COMPOSITE: { value: Exclude<PrimeClass, '' | 'neither'>; label: string }[] = [
@@ -321,9 +325,11 @@ export const Lesson1View: React.FC<LessonViewProps<Lesson1State>> = ({
         </>
       )}
 
-      {step === 4 && <ChallengeStep s={s} set={set} verify={verify} />}
+      {step === 4 && <TileStep s={s} set={set} verify={verify} />}
 
-      {step === 5 && (
+      {step === 5 && <ChallengeStep s={s} set={set} verify={verify} />}
+
+      {step === 6 && (
         <>
           <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-4 sm:p-5 text-sm leading-relaxed break-keep">
             <div className="flex items-center gap-2 font-extrabold text-violet-900">
@@ -333,6 +339,7 @@ export const Lesson1View: React.FC<LessonViewProps<Lesson1State>> = ({
               <li>소수: 1보다 큰 자연수 중 1과 자기 자신만을 약수로 갖는 수 (약수 2개)</li>
               <li>합성수: 1보다 큰 자연수 중 소수가 아닌 수 (약수 3개 이상)</li>
               <li>1은 소수도 합성수도 아니에요. 2는 짝수지만 소수예요.</li>
+              <li>소수 개의 정사각형 타일은 직사각형으로 늘어놓는 방법이 한 줄(1 × 자기 자신) 한 가지뿐이에요.</li>
             </ul>
           </div>
           <Section badge="성찰" title="이번 차시를 돌아보자" tone="emerald" testId="l1-reflect">
@@ -345,6 +352,70 @@ export const Lesson1View: React.FC<LessonViewProps<Lesson1State>> = ({
     </div>
   );
 };
+
+const TileStep: React.FC<{
+  s: Lesson1State;
+  set: (patch: Partial<Lesson1State>) => void;
+  verify: (key: keyof Lesson1State, ok: boolean) => void;
+}> = ({ s, set, verify }) => (
+  <>
+    <Section badge="도형으로 이해하기" title="도형을 이용하여 소수와 합성수 이해하기" tone="sky" testId="l1-tiles-intro">
+      <p className="text-sm sm:text-base leading-relaxed text-slate-800 break-keep">
+        한 변의 길이가 1인 정사각형 모양의 타일 6개를 직사각형 모양으로 배열하는 방법은 다음과 같이{' '}
+        <strong className="mono">1 × 6</strong>, <strong className="mono">2 × 3</strong>의 두 가지이다.
+      </p>
+      <div className="flex flex-wrap items-end gap-6">
+        <TileRect cols={6} rows={1} label="1 × 6" />
+        <TileRect cols={3} rows={2} label="2 × 3" />
+      </div>
+      <p className="text-xs text-slate-500 break-keep">
+        ※ 1 × 6을 돌려 세운 6 × 1처럼, 돌리면 같아지는 모양은 한 가지로 세요.
+      </p>
+    </Section>
+
+    <Section badge="활동 1" title="정사각형 모양의 타일 7개를 직사각형 모양으로 배열하는 방법은 몇 가지인지 말해 보자." tone="violet" testId="l1-tile7">
+      <TileBoard n={7} found={s.tile7Found} onChange={(found) => set({ tile7Found: found })} />
+      <div className="flex items-center gap-2 text-sm font-bold">
+        <span>배열하는 방법은</span>
+        <ShortInput id="l1-tile7Count" ariaLabel="타일 7개 배열 방법 수" width="xs" inputMode="numeric" value={s.tile7Count} onChange={(v) => set({ tile7Count: v })} />
+        <span>가지</span>
+      </div>
+      <CheckBar verified={s.tile7Verified} onCheck={() => withVerify(checkTiles(7, s.tile7Found, s.tile7Count), () => verify('tile7Verified', true))} />
+    </Section>
+
+    <Section badge="활동 2" title="정사각형 모양의 타일 16개를 직사각형 모양으로 배열하는 방법은 몇 가지인지 말해 보자." tone="violet" testId="l1-tile16">
+      <TileBoard n={16} found={s.tile16Found} onChange={(found) => set({ tile16Found: found })} />
+      <div className="flex items-center gap-2 text-sm font-bold">
+        <span>배열하는 방법은</span>
+        <ShortInput id="l1-tile16Count" ariaLabel="타일 16개 배열 방법 수" width="xs" inputMode="numeric" value={s.tile16Count} onChange={(v) => set({ tile16Count: v })} />
+        <span>가지</span>
+      </div>
+      <HintToggle>한 줄에 놓는 타일 수를 1, 2, 3, 4, … 로 바꿔 보세요. 딱 맞아떨어지는 수는 16의 약수예요.</HintToggle>
+      <CheckBar verified={s.tile16Verified} onCheck={() => withVerify(checkTiles(16, s.tile16Found, s.tile16Count), () => verify('tile16Verified', true))} />
+    </Section>
+
+    <Section badge="활동 3" title="정사각형 모양의 타일을 직사각형 모양으로 배열하는 방법이 한 가지뿐인 경우를 찾아보고, 그 특징을 말해 보자." tone="emerald" testId="l1-tileOne">
+      <p className="text-xs text-slate-600 break-keep">아래 놀이판에서 타일 개수를 바꿔 가며 실험해 보세요.</p>
+      <TileBoard free />
+      <ShortInput
+        id="l1-tileOneNumbers"
+        label="배열 방법이 한 가지뿐인 타일 개수 (2 이상, 3개 이상, 쉼표로 구분)"
+        width="full"
+        value={s.tileOneNumbers}
+        onChange={(v) => set({ tileOneNumbers: v })}
+      />
+      <TextAnswer
+        id="l1-tileOneFeature"
+        label="그 수들의 특징"
+        value={s.tileOneFeature}
+        min={L1_MIN_TILE_FEATURE}
+        onChange={(v) => set({ tileOneFeature: v })}
+      />
+      <HintToggle>배열 방법이 한 가지뿐이면 그 모양은 어떤 모양일까요? 그 수의 약수는 몇 개일까요? 앞에서 배운 말로 설명해 보세요.</HintToggle>
+      <CheckBar verified={s.tileOneVerified} onCheck={() => withVerify(checkTileOne(s), () => verify('tileOneVerified', true))} />
+    </Section>
+  </>
+);
 
 const ChallengeStep: React.FC<{
   s: Lesson1State;

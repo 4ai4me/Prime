@@ -59,7 +59,7 @@ export const CURRICULUM_LESSONS: CurriculumLesson[] = [
     unit: 1,
     shortTitle: '소수란?',
     question: '소수란 무엇일까?',
-    stages: ['단원 열기 · 준비 학습', '생각 열기 · 약수 모여라', '소수와 합성수의 뜻', '문제 1 · 소수? 합성수?', '도전 · 수준별 문제', '성찰'],
+    stages: ['단원 열기 · 준비 학습', '생각 열기 · 약수 모여라', '소수와 합성수의 뜻', '문제 1 · 소수? 합성수?', '도형 · 타일 배열', '도전 · 수준별 문제', '성찰'],
     status: 'ready',
   },
   {

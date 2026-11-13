@@ -60,6 +60,15 @@ export const LESSON_FIELD_LABELS: Record<LessonKey, Record<string, string>> = {
     evenTwo: '[오개념 점검] 2는 소수일까?',
     evenTwoReason: '[오개념 점검] 이유',
     evenVerified: '점검 통과 · 오개념 점검',
+    tile7Found: '[도형 활동 1] 타일 7개로 찾은 직사각형',
+    tile7Count: '[도형 활동 1] 배열 방법 수',
+    tile7Verified: '점검 통과 · 도형 활동 1',
+    tile16Found: '[도형 활동 2] 타일 16개로 찾은 직사각형',
+    tile16Count: '[도형 활동 2] 배열 방법 수',
+    tile16Verified: '점검 통과 · 도형 활동 2',
+    tileOneNumbers: '[도형 활동 3] 배열 방법이 한 가지뿐인 타일 개수',
+    tileOneFeature: '[도형 활동 3] 그 수들의 특징',
+    tileOneVerified: '점검 통과 · 도형 활동 3',
     chPicks: '[도전] 고른 수 5개',
     chReason: '[도전] 찾은 방법 설명',
     chVerified: '점검 통과 · 도전',
@@ -93,6 +102,9 @@ export function formatAnswerValue(field: string, value: unknown): string {
   }
   if (typeof value === 'boolean') return value ? (field.endsWith('Verified') ? '통과' : '예') : '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (Array.isArray(value) && /^tile\d+Found$/.test(field)) {
+    return value.map((v) => String(v).replace('x', ' × ')).join(', ');
+  }
   if (Array.isArray(value)) return value.map((v) => formatAnswerValue('', v)).filter(Boolean).join(', ');
   try {
     return JSON.stringify(value);

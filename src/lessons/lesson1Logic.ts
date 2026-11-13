@@ -2,7 +2,7 @@ import { isReflectionDone, sanitizeHelpSource, type LessonCommonState } from '..
 
 /**
  * 1차시 「소수란 무엇일까?」 — 입력 형식·점검(채점)·단계 완료 판정 (화면과 분리, 단위 테스트 대상)
- * 단계: 0 단원 열기·준비 학습 / 1 생각 열기 / 2 소수와 합성수의 뜻 / 3 문제 1 / 4 도전 / 5 성찰
+ * 단계: 0 단원 열기·준비 학습 / 1 생각 열기 / 2 소수와 합성수의 뜻 / 3 문제 1 / 4 도형(타일 배열) / 5 도전 / 6 성찰
  */
 
 export type PrimeClass = '' | 'prime' | 'composite' | 'neither';
@@ -56,7 +56,19 @@ export interface Lesson1State extends LessonCommonState {
   evenTwo?: YesNo;
   evenTwoReason?: string;
   evenVerified?: boolean;
-  // 4. 도전 · 수준별 (상)
+  // 4. 도형을 이용하여 소수와 합성수 이해하기 (타일 배열, 2026-11-13 추가)
+  /** 찾은 직사각형 배열 ('작은 수x큰 수', 예: '1x7') */
+  tile7Found?: string[];
+  tile7Count?: string;
+  tile7Verified?: boolean;
+  tile16Found?: string[];
+  tile16Count?: string;
+  tile16Verified?: boolean;
+  /** 활동 3: 배열 방법이 한 가지뿐인 타일 개수들 */
+  tileOneNumbers?: string;
+  tileOneFeature?: string;
+  tileOneVerified?: boolean;
+  // 5. 도전 · 수준별 (상)
   chPicks?: number[];
   chReason?: string;
   chVerified?: boolean;
@@ -66,6 +78,7 @@ export interface Lesson1State extends LessonCommonState {
 export const L1_MIN_EXAMPLE = 10;
 export const L1_MIN_REASON = 10;
 export const L1_MIN_CHALLENGE = 20;
+export const L1_MIN_TILE_FEATURE = 15;
 
 export const L1_P1_NUMBERS = [11, 14, 19, 27] as const;
 export const L1_CHALLENGE_RANGE = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
@@ -269,6 +282,59 @@ export function checkEvenTwo(s: Lesson1State): CheckResult {
   return pass('맞아요. 2의 약수는 1, 2뿐이라 소수예요. 2는 짝수인 유일한 소수랍니다. 소수가 모두 홀수인 것은 아니에요!');
 }
 
+// ------------------------------------------------------------------
+// 도형(타일 배열): 정사각형 타일 n개를 직사각형으로 늘어놓는 방법
+// 1×6과 6×1처럼 돌리면 같은 모양은 한 가지로 셈 (교과서: 6개 → 1×6, 2×3 두 가지)
+// ------------------------------------------------------------------
+
+/** 'a×b' 기록 키 (작은 수가 앞) */
+export function tileKey(a: number, b: number): string {
+  return `${Math.min(a, b)}x${Math.max(a, b)}`;
+}
+
+/** n개 타일의 모든 직사각형 배열 키 */
+export function tileArrangements(n: number): string[] {
+  const out: string[] = [];
+  for (const d of divisorsOf(n)) if (d * d <= n) out.push(tileKey(d, n / d));
+  return out;
+}
+
+/** 한 줄에 a개씩 놓으면? 딱 맞으면 줄 수, 아니면 남는 타일 수 */
+export function tryTileRow(n: number, a: number): { ok: true; rows: number; key: string } | { ok: false; left: number } {
+  if (!Number.isInteger(a) || a < 1 || a > n) return { ok: false, left: n };
+  if (n % a === 0) return { ok: true, rows: n / a, key: tileKey(a, n / a) };
+  return { ok: false, left: n % a };
+}
+
+export function checkTiles(n: 7 | 16, found: string[] | undefined, count: string | undefined): CheckResult {
+  const all = tileArrangements(n);
+  const got = [...new Set(found ?? [])];
+  const missing = all.length - got.filter((k) => all.includes(k)).length;
+  if (missing > 0) return fail(`타일 ${n}개로 만들 수 있는 직사각형을 ${missing}가지 더 찾아보세요. 한 줄에 놓는 개수를 1부터 바꿔 가며 해 보세요.`);
+  if (parseSingleNumber(count) !== all.length) return fail('찾은 직사각형을 보고, 배열하는 방법이 몇 가지인지 다시 세어 보세요. (돌리면 같은 모양은 한 가지)');
+  return pass(
+    `타일 ${n}개 → ${all.map((k) => k.replace('x', ' × ')).join(', ')}로 ${all.length}가지! ${n}의 약수는 ${divisorsOf(n).join(', ')}이에요.`
+  );
+}
+
+/** 활동 3: 배열 방법이 한 가지뿐인 타일 개수 (2 이상 3개) + 특징 서술 */
+export function checkTileOne(s: Lesson1State): CheckResult {
+  const list = [...new Set(parseNumberList(s.tileOneNumbers))].filter((n) => n >= 2);
+  const wrong = list.filter((n) => tileArrangements(n).length !== 1);
+  if (wrong.length) {
+    return fail(
+      `${wrong.join(', ')}개는 직사각형으로 배열하는 방법이 한 가지가 아니에요. (${wrong
+        .map((n) => `${n}개: ${tileArrangements(n).map((k) => k.replace('x', '×')).join(', ')}`)
+        .join(' / ')})`
+    );
+  }
+  if (list.length < 3) return fail('배열 방법이 한 가지뿐인 타일 개수를 2 이상의 수로 3개 이상 찾아 써 주세요.');
+  if ((s.tileOneFeature ?? '').trim().length < L1_MIN_TILE_FEATURE) return fail(`그 수들의 특징을 ${L1_MIN_TILE_FEATURE}자 이상 써 주세요.`);
+  return pass(
+    `${list.join(', ')}개는 한 줄로 늘어놓는 방법(1 × 자기 자신)밖에 없어요. 약수가 1과 자기 자신뿐인 수, 곧 소수예요! 합성수 개수의 타일은 직사각형 방법이 두 가지 이상이에요.`
+  );
+}
+
 /** 도전: 고른 5개 수의 약수를 모두 더한 값과 고른 수의 합 */
 export function challengeSums(picks: number[] | undefined): { pickSum: number; divisorSum: number; diff: number } {
   const list = [...new Set(picks ?? [])];
@@ -297,6 +363,7 @@ export function evaluateLesson1Completion(state: LessonCommonState): boolean[] {
     Boolean(s.openVerified),
     Boolean(s.conceptVerified && s.myVerified),
     Boolean(s.p1Verified && s.evenVerified),
+    Boolean(s.tile7Verified && s.tile16Verified && s.tileOneVerified),
     Boolean(s.chVerified),
     isReflectionDone(s),
   ];
@@ -336,6 +403,12 @@ export const L1_VERIFY_OF: Partial<Record<keyof Lesson1State, keyof Lesson1State
   p1Divisor27: 'p1Verified',
   evenTwo: 'evenVerified',
   evenTwoReason: 'evenVerified',
+  tile7Found: 'tile7Verified',
+  tile7Count: 'tile7Verified',
+  tile16Found: 'tile16Verified',
+  tile16Count: 'tile16Verified',
+  tileOneNumbers: 'tileOneVerified',
+  tileOneFeature: 'tileOneVerified',
   chPicks: 'chVerified',
   chReason: 'chVerified',
 };
@@ -360,17 +433,20 @@ const STRING_FIELDS: (keyof Lesson1State)[] = [
   'connectA', 'connectB', 'connectExample',
   'prepDiv10', 'prepDiv16', 'prepMul5', 'prepMul12', 'prepGcd915', 'prepGcd1620', 'prepLcm410', 'prepLcm1218',
   'openPrimes', 'talkDivisorCount', 'myNumber', 'myDivisors', 'p1Divisor11', 'p1Divisor14', 'p1Divisor19', 'p1Divisor27', 'evenTwoReason', 'chReason',
+  'tile7Count', 'tile16Count', 'tileOneNumbers', 'tileOneFeature',
   'reflection1', 'reflection2',
 ];
 const BOOL_FIELDS: (keyof Lesson1State)[] = [
   'connectVerified', 'prepVerified', 'openVerified', 'conceptVerified', 'myVerified', 'p1Verified', 'evenVerified', 'chVerified',
+  'tile7Verified', 'tile16Verified', 'tileOneVerified',
 ];
 const NUM_ARRAY_FIELDS: (keyof Lesson1State)[] = ['open6Picks', 'open7Picks', 'chPicks'];
+const TILE_KEY_FIELDS: (keyof Lesson1State)[] = ['tile7Found', 'tile16Found'];
 const CLASS_FIELDS: (keyof Lesson1State)[] = ['oneClass', 'myClass', 'p1Class11', 'p1Class14', 'p1Class19', 'p1Class27'];
 const CONF_FIELDS: (keyof Lesson1State)[] = ['prepSure1', 'prepSure2', 'prepSure3', 'prepSure4'];
 
 export const LESSON1_FIELDS: (keyof Lesson1State)[] = [
-  ...STRING_FIELDS, ...BOOL_FIELDS, ...NUM_ARRAY_FIELDS, ...CLASS_FIELDS, ...CONF_FIELDS, 'evenTwo', 'helpSource',
+  ...STRING_FIELDS, ...BOOL_FIELDS, ...NUM_ARRAY_FIELDS, ...TILE_KEY_FIELDS, ...CLASS_FIELDS, ...CONF_FIELDS, 'evenTwo', 'helpSource',
 ];
 
 /** 칸 하나 정리. 버릴 값이면 undefined */
@@ -380,6 +456,10 @@ function cleanField(k: keyof Lesson1State, v: unknown): unknown {
   if (NUM_ARRAY_FIELDS.includes(k)) {
     if (!Array.isArray(v)) return undefined;
     return [...new Set(v.filter((x): x is number => Number.isInteger(x) && x >= 1 && x <= 100))].slice(0, 20);
+  }
+  if (TILE_KEY_FIELDS.includes(k)) {
+    if (!Array.isArray(v)) return undefined;
+    return [...new Set(v.filter((x): x is string => typeof x === 'string' && /^\d{1,3}x\d{1,3}$/.test(x)))].slice(0, 20);
   }
   if (CLASS_FIELDS.includes(k)) return v === 'prime' || v === 'composite' || v === 'neither' ? v : '';
   if (CONF_FIELDS.includes(k)) return v === 'sure' || v === 'need' ? v : '';

@@ -42,9 +42,12 @@ test('단계별 핵심 내용', () => {
   assert.ok(render(3).includes('2는 짝수니까 소수가 아니야'));
   assert.ok(!render(3).includes('증거:'), '합성수를 고르기 전에는 증거 칸 없음');
   assert.ok(render(3, { p1Class11: 'composite' }).includes('증거: 1과 11이 아닌'));
-  assert.ok(render(4).includes('2 이상 10 이하의 자연수'));
-  assert.ok(render(5).includes('이번 차시 문제를 어떻게 해결했나요?'));
-  assert.ok(render(5).includes('오늘의 핵심'));
+  assert.ok(render(4).includes('도형을 이용하여 소수와 합성수 이해하기'));
+  assert.ok(render(4).includes('타일 16개를 직사각형 모양으로'));
+  assert.ok(render(4).includes('1 × 6') && render(4).includes('2 × 3'));
+  assert.ok(render(5).includes('2 이상 10 이하의 자연수'));
+  assert.ok(render(6).includes('이번 차시 문제를 어떻게 해결했나요?'));
+  assert.ok(render(6).includes('오늘의 핵심'));
 });
 
 test('점검 통과한 문항에 확인 완료 표시', () => {

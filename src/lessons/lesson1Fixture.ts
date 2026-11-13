@@ -12,6 +12,9 @@ export function fullLesson1(): Lesson1State {
     p1Class11: 'prime', p1Class14: 'composite', p1Class19: 'prime', p1Class27: 'composite',
     p1Divisor14: '7', p1Divisor27: '9', p1Verified: true,
     evenTwo: 'yes', evenTwoReason: '2의 약수는 1과 2뿐이기 때문이다', evenVerified: true,
+    tile7Found: ['1x7'], tile7Count: '1', tile7Verified: true,
+    tile16Found: ['1x16', '2x8', '4x4'], tile16Count: '3', tile16Verified: true,
+    tileOneNumbers: '2, 3, 5, 7', tileOneFeature: '모두 소수이고 한 줄로만 놓을 수 있다', tileOneVerified: true,
     chPicks: [2, 3, 5, 7, 9], chReason: '소수는 1과 자기 자신 말고 약수가 없어서 남는 3을 9로 맞췄다', chVerified: true,
     reflection1: '소수는 약수가 2개이고 합성수는 3개 이상이다',
   };

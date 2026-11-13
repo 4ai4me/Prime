@@ -12,6 +12,10 @@ import {
   checkOpen,
   checkPrep,
   checkProblem1,
+  checkTileOne,
+  checkTiles,
+  tileArrangements,
+  tryTileRow,
   classify,
   cleanLesson1State,
   divisorsOf,
@@ -108,12 +112,34 @@ test('도전: 2~10에서 5개, 약수의 합이 8 더 큰 경우는 2, 3, 5, 7, 
   assert.equal(checkChallenge({ chPicks: [2, 3, 5, 7, 9], chReason: '짧음' }).ok, false);
 });
 
+test('도형(타일 배열): 6개 → 1×6, 2×3 / 7개 1가지 / 16개 3가지, 돌린 모양은 한 가지', () => {
+  assert.deepEqual(tileArrangements(6), ['1x6', '2x3']);
+  assert.deepEqual(tileArrangements(7), ['1x7']);
+  assert.deepEqual(tileArrangements(16), ['1x16', '2x8', '4x4']);
+  assert.deepEqual(tryTileRow(16, 8), { ok: true, rows: 2, key: '2x8' });
+  assert.deepEqual(tryTileRow(16, 2), { ok: true, rows: 8, key: '2x8' }, '8 × 2는 2 × 8과 같은 모양');
+  assert.deepEqual(tryTileRow(7, 3), { ok: false, left: 1 });
+  assert.equal(checkTiles(7, ['1x7'], '1').ok, true);
+  assert.equal(checkTiles(7, ['1x7'], '2').ok, false);
+  assert.equal(checkTiles(16, ['1x16', '2x8'], '3').ok, false, '4 × 4를 못 찾음');
+  assert.equal(checkTiles(16, ['1x16', '2x8', '4x4'], '3').ok, true);
+  const f = '모두 소수이고 한 줄로만 놓을 수 있다';
+  assert.equal(checkTileOne({ tileOneNumbers: '2, 3, 5', tileOneFeature: f }).ok, true);
+  assert.equal(checkTileOne({ tileOneNumbers: '1, 2, 3, 5', tileOneFeature: f }).ok, true, '1은 세지 않음');
+  const bad = checkTileOne({ tileOneNumbers: '2, 3, 9', tileOneFeature: f });
+  assert.equal(bad.ok, false);
+  assert.ok(bad.messages[0].includes('9개: 1×9, 3×3'));
+  assert.equal(checkTileOne({ tileOneNumbers: '2, 3, 5', tileOneFeature: '소수' }).ok, false);
+  assert.deepEqual(cleanLesson1State({ tile7Found: ['1x7', 'evil', 3, '1x7'] }), { tile7Found: ['1x7'] });
+});
+
 test('단계 완료: 단계 수 = curriculum 단계 수, 모두 맞히면 전부 완료, 빈 기록은 모두 미완료', () => {
   const stages = CURRICULUM_LESSONS[0].stages;
-  assert.equal(stages.length, 6);
+  assert.equal(stages.length, 7);
+  assert.equal(stages[4], '도형 · 타일 배열');
   assert.equal(stages[stages.length - 1], '성찰');
-  assert.deepEqual(evaluateLesson1Completion(fullLesson1()), [true, true, true, true, true, true]);
-  assert.deepEqual(evaluateLesson1Completion({}), [false, false, false, false, false, false]);
+  assert.deepEqual(evaluateLesson1Completion(fullLesson1()), [true, true, true, true, true, true, true]);
+  assert.deepEqual(evaluateLesson1Completion({}), [false, false, false, false, false, false, false]);
 });
 
 test('답을 고치면 그 문항의 ✓만 지워짐 (다른 문항 ✓는 유지)', () => {
@@ -152,6 +178,7 @@ test('교사 답안 보기: 1차시 모든 칸에 이름표, 고르기 값은 �
   assert.equal(text('p1Class14'), '합성수');
   assert.equal(text('oneClass'), '소수도 합성수도 아님');
   assert.equal(text('chPicks'), '2, 3, 5, 7, 9');
+  assert.equal(text('tile16Found'), '1 × 16, 2 × 8, 4 × 4');
   assert.equal(text('p1Verified'), '통과');
   assert.equal(text('evenTwo'), '소수이다');
 });
