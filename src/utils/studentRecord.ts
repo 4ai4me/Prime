@@ -11,30 +11,22 @@ import type { LessonTabNumber } from './lessonAccess';
  * - 차시 자료를 채울 때 그 차시의 LessonNState에 칸을 추가하고, cleanLessonState에서 읽는 방법을 정합니다.
  */
 
-/** 성찰 단계 '이번 차시 문제를 어떻게 해결했나요?' — 완료 조건·평가 점수에는 쓰지 않음 */
-export type HelpSource = '' | 'ai' | 'hint' | 'peer' | 'self';
-export const HELP_SOURCE_OPTIONS: { value: Exclude<HelpSource, ''>; label: string; short: string }[] = [
-  { value: 'ai', label: 'AI의 도움을 받았어요', short: 'AI 도움' },
-  { value: 'hint', label: '힌트의 도움을 받았어요', short: '힌트 도움' },
-  { value: 'peer', label: '친구나 선생님의 도움을 받았어요', short: '친구·선생님 도움' },
-  { value: 'self', label: '스스로 해결했어요', short: '스스로 해결' },
-];
-export function sanitizeHelpSource(v: unknown): HelpSource {
-  return v === 'ai' || v === 'hint' || v === 'peer' || v === 'self' ? v : '';
-}
-
-/** 모든 차시에 공통으로 있는 성찰 칸 */
-export interface LessonCommonState {
-  reflection1?: string;
-  reflection2?: string;
-  helpSource?: HelpSource;
-}
+export {
+  HELP_SOURCE_OPTIONS,
+  REFLECTION_MIN_CHARS,
+  isReflectionDone,
+  sanitizeHelpSource,
+  type HelpSource,
+  type LessonCommonState,
+} from './lessonCommon';
+import { sanitizeHelpSource, type LessonCommonState } from './lessonCommon';
+import { cleanLesson1State, type Lesson1State } from '../lessons/lesson1Logic';
 
 /**
- * 차시별 답안. 지금은 모두 자료 준비 중이라 공통 칸만 있습니다.
- * 자료를 채우면 그 차시의 칸을 여기에 추가합니다. (예: interface Lesson1State extends LessonCommonState { ... })
+ * 차시별 답안. 자료 준비 중인 차시는 공통 칸만 있습니다.
+ * 자료를 채운 차시는 src/lessons/lessonNLogic.ts 에 형식을 두고 여기서 이어 씁니다. (1차시: lesson1Logic.ts)
  */
-export type Lesson1State = LessonCommonState;
+export type { Lesson1State };
 export type Lesson2State = LessonCommonState;
 export type Lesson3State = LessonCommonState;
 export type Lesson4State = LessonCommonState;
@@ -90,7 +82,6 @@ export const EVAL_SCORE_LABELS: Record<number, string> = {
   3: '3점 · 충분한 수행',
 };
 
-export const REFLECTION_MIN_CHARS = 20;
 
 // ------------------------------------------------------------------
 // 만들기 · 정리하기
@@ -177,6 +168,8 @@ export function cleanStudentState(raw: unknown): StudentRecord {
   for (const k of LESSON_KEYS) {
     result[k] = cleanLessonState(obj[k]);
   }
+  // 자료가 채워진 차시는 그 차시의 정리 방법을 씀 (모르는 칸은 버림)
+  result.l1 = cleanLesson1State(obj.l1);
   const ev = cleanEvaluation(obj.evaluation);
   if (ev) result.evaluation = ev;
   return result;

@@ -1427,7 +1427,9 @@ export default function App() {
                 <nav
                   aria-label="탐구 단계 이동"
                   className={`no-print grid gap-2 sm:gap-3 ${
-                    activeInfo.stages.length >= 5
+                    activeInfo.stages.length === 6
+                      ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+                      : activeInfo.stages.length >= 5
                       ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
                       : activeInfo.stages.length === 4
                       ? 'grid-cols-2 sm:grid-cols-4'

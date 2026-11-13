@@ -1,7 +1,8 @@
 import React from 'react';
 import { CharCountBadge, getCharCountBorderClass } from '../components/CharCountBadge';
 import { HelpSourcePicker } from '../components/HelpSourcePicker';
-import { REFLECTION_MIN_CHARS, type LessonCommonState } from '../utils/studentRecord';
+import { REFLECTION_MIN_CHARS, type LessonCommonState } from '../utils/lessonCommon';
+export { isReflectionDone } from '../utils/lessonCommon';
 import { COMMON_FIELD_LABELS } from './answerLabels';
 
 /**
@@ -10,9 +11,6 @@ import { COMMON_FIELD_LABELS } from './answerLabels';
  * - '이번 차시 문제를 어떻게 해결했나요?' 선택 (완료 조건·평가에는 쓰지 않음)
  * 차시 자료를 채울 때 마지막 단계에 <ReflectionStep … />을 넣으면 됩니다.
  */
-export function isReflectionDone(state: LessonCommonState): boolean {
-  return (state.reflection1 ?? '').trim().length >= REFLECTION_MIN_CHARS;
-}
 
 export const ReflectionStep: React.FC<{
   lesson: number;

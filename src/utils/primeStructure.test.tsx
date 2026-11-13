@@ -105,7 +105,8 @@ test('학생 화면 열기 판단: 확인 전·모두 잠김·이 차시 잠김�
 });
 
 test('자료 준비 중 차시: 화면에 질문·활동 계획이 보이고 입력 칸이 없음, 진행은 시작 전', () => {
-  for (const l of CURRICULUM_LESSONS) {
+  assert.equal(isLessonReady(1), true, '1차시는 완성 (2026-11-13)');
+  for (const l of CURRICULUM_LESSONS.filter((x) => x.status === 'placeholder')) {
     assert.equal(isLessonReady(l.num), false);
     const html = renderToStaticMarkup(<LessonPlaceholderView lesson={l.num} />);
     assert.ok(html.includes(l.question), `${l.num}차시 질문`);
