@@ -67,9 +67,9 @@ export const CURRICULUM_LESSONS: CurriculumLesson[] = [
     unit: 1,
     shortTitle: '소수 찾기',
     question: '소수를 어떻게 찾을 수 있을까?',
-    extra: { label: '신나는 놀이 & 수학', title: '어떻게 색칠하면 될까?' },
-    stages: ['소수 찾기', '신나는 놀이 & 수학 · 색칠하기', '성찰'],
-    status: 'placeholder',
+    // 신나는 놀이 & 수학 '어떻게 색칠하면 될까?'는 자료를 받으면 단계로 추가 (2026-11-23 에라토스테네스의 체 먼저)
+    stages: ['함께하기 · 에라토스테네스의 체', '문제 2 · 51부터 100까지', '배운 내용 확인하기', '수학 이야기 · 더 큰 소수', '성찰'],
+    status: 'ready',
   },
   {
     num: 3,

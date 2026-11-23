@@ -47,7 +47,7 @@ test('단원 구성: 중단원 3개 · 6차시, 교과서 순서와 이름', () 
     assert.ok(CURRICULUM_UNITS.find((u) => u.num === l.unit)!.lessons.includes(l.num), `${l.num}차시 중단원 일치`);
     assert.equal(l.stages[l.stages.length - 1], '성찰', `${l.num}차시 마지막 단계는 성찰`);
   }
-  assert.equal(CURRICULUM_LESSONS[1].extra?.title, '어떻게 색칠하면 될까?');
+  assert.equal(CURRICULUM_LESSONS[1].stages[0], '함께하기 · 에라토스테네스의 체');
   assert.equal(CURRICULUM_LESSONS[3].extra?.title, '블록 코딩으로 소인수분해 하기');
   assert.equal(LESSON_TAB_METADATA[4].fullTitle, '최대공약수 (5차시)');
   assert.equal(EVAL_CRITERIA.length, 6);
