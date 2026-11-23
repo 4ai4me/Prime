@@ -76,8 +76,8 @@ export const CURRICULUM_LESSONS: CurriculumLesson[] = [
     unit: 2,
     shortTitle: '거듭제곱',
     question: '거듭제곱이란 무엇일까?',
-    stages: ['거듭제곱의 뜻', '성찰'],
-    status: 'placeholder',
+    stages: ['생각 열기 · 미생물', '거듭제곱의 뜻', '문제 1 · 거듭제곱으로', '오개념 점검 · 밑과 지수', '도전 · 1000마리', '성찰'],
+    status: 'ready',
   },
   {
     num: 4,
@@ -85,8 +85,16 @@ export const CURRICULUM_LESSONS: CurriculumLesson[] = [
     shortTitle: '소인수분해',
     question: '소인수분해는 어떻게 할까?',
     extra: { label: '교구 & 공학 도구', title: '블록 코딩으로 소인수분해 하기' },
-    stages: ['소인수분해하기', '교구 & 공학 도구 · 블록 코딩', '성찰'],
-    status: 'placeholder',
+    stages: [
+      '생각 열기 · 소인수',
+      '소인수분해 · 함께하기',
+      '예제 1 · 문제 3',
+      '소인수분해로 약수 구하기',
+      '교구 & 공학 도구 · 블록 코딩',
+      '배운 내용 확인하기',
+      '성찰',
+    ],
+    status: 'ready',
   },
   {
     num: 5,
@@ -105,6 +113,12 @@ export const CURRICULUM_LESSONS: CurriculumLesson[] = [
     status: 'placeholder',
   },
 ];
+
+/**
+ * 4차시 교구 & 공학 도구: 외부 블록 코딩 프로그램 주소 (선생님이 정함).
+ * 비어 있으면 학생 화면에 "선생님이 곧 연결해 줄 거예요"가 보입니다.
+ */
+export const BLOCK_CODING_URL = 'https://playentry.org/ws/663a43493698b7f47bd2e1b9?type=normal&mode=block&lang=ko'; // 엔트리 (2026-11-23 선생님 제공)
 
 export function getCurriculumLesson(num: LessonNumber): CurriculumLesson {
   const found = CURRICULUM_LESSONS.find((l) => l.num === num);

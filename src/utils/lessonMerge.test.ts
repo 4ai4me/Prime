@@ -31,14 +31,14 @@ test('차시 문서가 없으면 예전 worksheetJson 내용을 그대로 사용
 test('차시 문서가 있는 차시만 덮어쓰고 나머지 차시는 예전 내용을 유지한다', () => {
   const legacy = legacyRecord();
   const edited = structuredClone(legacy);
-  (edited.l3 as unknown as Record<string, unknown>).openMeaningReason = '새로 쓴 답';
+  (edited.l3 as unknown as Record<string, unknown>).microExpr = '새로 쓴 답';
   const snap: StudentLessonSnapshot = {
     lessons: {
       l3: { studentKey: 'k', lesson: 3, data: JSON.stringify(edited.l3), clientUpdatedAt: '2026-10-30T00:00:00.000Z' },
     },
   };
   const out = assembleRecord(legacy, snap);
-  assert.equal((out.l3 as unknown as Record<string, unknown>).openMeaningReason, '새로 쓴 답');
+  assert.equal((out.l3 as unknown as Record<string, unknown>).microExpr, '새로 쓴 답');
   for (const k of LESSON_KEYS) {
     if (k === 'l3') continue;
     assert.equal(JSON.stringify(out[k]), JSON.stringify(legacy[k]), `${k}는 예전 내용이어야 함`);

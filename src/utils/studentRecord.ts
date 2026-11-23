@@ -21,15 +21,15 @@ export {
 } from './lessonCommon';
 import { sanitizeHelpSource, type LessonCommonState } from './lessonCommon';
 import { cleanLesson1State, type Lesson1State } from '../lessons/lesson1Logic';
+import { cleanLesson3State, type Lesson3State } from '../lessons/lesson3Logic';
+import { cleanLesson4State, type Lesson4State } from '../lessons/lesson4Logic';
 
 /**
  * 차시별 답안. 자료 준비 중인 차시는 공통 칸만 있습니다.
  * 자료를 채운 차시는 src/lessons/lessonNLogic.ts 에 형식을 두고 여기서 이어 씁니다. (1차시: lesson1Logic.ts)
  */
-export type { Lesson1State };
+export type { Lesson1State, Lesson3State, Lesson4State };
 export type Lesson2State = LessonCommonState;
-export type Lesson3State = LessonCommonState;
-export type Lesson4State = LessonCommonState;
 export type Lesson5State = LessonCommonState;
 export type Lesson6State = LessonCommonState;
 
@@ -170,6 +170,8 @@ export function cleanStudentState(raw: unknown): StudentRecord {
   }
   // 자료가 채워진 차시는 그 차시의 정리 방법을 씀 (모르는 칸은 버림)
   result.l1 = cleanLesson1State(obj.l1);
+  result.l3 = cleanLesson3State(obj.l3);
+  result.l4 = cleanLesson4State(obj.l4);
   const ev = cleanEvaluation(obj.evaluation);
   if (ev) result.evaluation = ev;
   return result;

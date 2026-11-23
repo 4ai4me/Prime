@@ -288,3 +288,21 @@ export const StepFooter: React.FC<{
     )}
   </div>
 );
+
+/** 점검 결과가 맞으면 확인 표시를 남기고, 결과를 그대로 화면에 돌려줌 */
+export function withVerify<T extends { ok: boolean }>(result: T, onOk: () => void): T {
+  if (result.ok) onOk();
+  return result;
+}
+
+/** 개념 상자 */
+export const ConceptBox: React.FC<{ children: React.ReactNode; testId?: string }> = ({ children, testId }) => (
+  <div data-testid={testId} className="rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-4 space-y-2 text-sm sm:text-base leading-relaxed text-slate-900 break-keep">
+    {children}
+  </div>
+);
+
+/** 작은 설명 쪽지 (한자 뜻, 약속 등) */
+export const Note: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600 break-keep">📖 {children}</p>
+);

@@ -122,10 +122,12 @@ test('자료 준비 중 차시: 화면에 질문·활동 계획이 보이고 입
 test('학생 기록: 형식이 틀린 값은 빈 기록, 모르는 칸도 보존(자료 채울 때 쓰기 위해), 너무 큰 차시는 버림', () => {
   assert.deepEqual(cleanStudentState('엉망').l1, {});
   const r = createInitialStudentState();
-  (r.l3 as Record<string, unknown>).powerAnswer = '2³';
+  (r.l6 as Record<string, unknown>).powerAnswer = '2³'; // 자료 준비 중 차시는 모르는 칸도 보존
+  (r.l3 as Record<string, unknown>).powerAnswer = '2³'; // 완성된 차시는 모르는 칸을 버림
   (r.l5 as Record<string, unknown>).huge = 'x'.repeat(200000);
   const back = cleanStudentState(JSON.parse(JSON.stringify(r)));
-  assert.equal((back.l3 as Record<string, unknown>).powerAnswer, '2³');
+  assert.equal((back.l6 as Record<string, unknown>).powerAnswer, '2³');
+  assert.equal((back.l3 as Record<string, unknown>).powerAnswer, undefined);
   assert.deepEqual(back.l5, {});
   // 가입 문서 worksheetJson: 규칙의 크기 제한(2자 이상) 만족, 답안은 넣지 않음
   const ws = initialWorksheetJson(r);

@@ -4,6 +4,10 @@ import { LessonPlaceholderView } from './LessonPlaceholderView';
 import type { LessonCommonState } from '../utils/lessonCommon';
 import { Lesson1View } from './Lesson1View';
 import { evaluateLesson1Completion } from './lesson1Logic';
+import { Lesson3View } from './Lesson3View';
+import { evaluateLesson3Completion } from './lesson3Logic';
+import { Lesson4View } from './Lesson4View';
+import { evaluateLesson4Completion } from './lesson4Logic';
 
 /**
  * 차시 화면 연결표
@@ -38,6 +42,8 @@ export interface LessonModule {
 /** 완성된 차시만 여기에 넣습니다. 없는 차시는 '자료 준비 중' 화면 */
 const READY_LESSONS: Partial<Record<LessonNumber, LessonModule>> = {
   1: { View: Lesson1View as React.FC<LessonViewProps>, evaluateCompletion: evaluateLesson1Completion },
+  3: { View: Lesson3View as React.FC<LessonViewProps>, evaluateCompletion: evaluateLesson3Completion },
+  4: { View: Lesson4View as React.FC<LessonViewProps>, evaluateCompletion: evaluateLesson4Completion },
 };
 
 const PlaceholderModuleView: React.FC<LessonViewProps> = ({ lesson }) => <LessonPlaceholderView lesson={lesson} />;
