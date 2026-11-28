@@ -53,9 +53,9 @@ import { AuthGateView, FirestoreStudentRegistrationDoc } from './components/Auth
 import { StudentEvaluationModal } from './components/StudentEvaluationModal';
 import { MathSymbolInputBar } from './components/MathSymbolInputBar';
 import { recordStudentAccessLog } from './utils/auditLogger';
-import { ensureStudentAuth } from './utils/studentAuth';
+import { ensureStudentAuth } from './utils/studentAccount';
 import { codeLabelOf, groupLabelOf, isRecordOfStudent, studentDraftKey } from './utils/studentDraft';
-import { needsPasswordSetup, useStudentAuthPolicy } from './utils/studentPassword';
+import { v2FullLabel } from './utils/studentIdentity';
 import {
   LessonJsonMap,
   assembleRecord,
@@ -256,8 +256,6 @@ export default function App() {
     }, 4500);
   }, []);
 
-  // 학생 비밀번호 사용 설정 (Func·Props와 공용, 기본: 사용 안 함)
-  const studentAuthPolicy = useStudentAuthPolicy();
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 저장 함수(saveNow)가 항상 최신 값을 쓰도록 렌더링마다 갱신
   const studentRef = useRef(student);
@@ -495,13 +493,8 @@ export default function App() {
     if (sessionMode !== 'student' || !approvedProfile?.studentKey || !firebaseUser) return;
     const unsub = onSnapshot(
       doc(db, 'student_registrations', approvedProfile.studentKey),
-      (snap) => {
-        if (!studentAuthPolicy.loaded || !snap.exists()) return;
-        if (needsPasswordSetup(studentAuthPolicy.passwordRequired, snap.data())) {
-          void saveNow();
-          setSessionMode('gate');
-          showToast('이제부터 비밀번호가 필요합니다. 비밀번호를 설정한 뒤 계속해 주세요.', 'warn');
-        }
+      () => {
+        // 활동지는 차시 문서에서 불러오므로, 여기서는 연결이 끊겼는지만 확인 (비밀번호는 2026-11-28~ 항상 필수)
       },
       (error) => {
         console.error('Student registration listener error:', error);
@@ -524,8 +517,6 @@ export default function App() {
     approvedProfile?.studentKey,
     firebaseUser,
     showToast,
-    studentAuthPolicy.loaded,
-    studentAuthPolicy.passwordRequired,
     saveNow,
   ]);
 
@@ -894,12 +885,7 @@ export default function App() {
     if (ok) {
       showToast('클라우드에 최신 활동지가 즉시 저장되었습니다.', 'good');
       recordStudentAccessLog({
-        studentKey: approvedProfile.studentKey,
-        school: approvedProfile.school,
-        grade: approvedProfile.grade,
-        classNum: approvedProfile.classNum,
-        studentNum: approvedProfile.studentNum,
-        name: approvedProfile.name,
+        profile: approvedProfile,
         eventType: 'save',
         status: 'approved',
         deviceHash: approvedProfile.deviceHash,
@@ -915,14 +901,20 @@ export default function App() {
   };
 
   const handleStudentApprovedLogin = useCallback(
-    (regDoc: FirestoreStudentRegistrationDoc, worksheet: StudentRecord) => {
+    (regDoc: FirestoreStudentRegistrationDoc) => {
       const groupLabel = groupLabelOf(regDoc);
       const codeLabel = codeLabelOf(regDoc);
+      // 답안은 로그인 뒤 차시 문서에서 불러옵니다 (가입 문서의 worksheetJson은 읽지 않음)
+      const worksheet = createInitialStudentState();
+      worksheet.group = groupLabel;
+      worksheet.code = codeLabel;
       // 차시 문서 불러오기는 로그인 후 effect에서 수행 (끝나기 전까지 자동 저장하지 않음)
       serverLessonJsonRef.current = null;
       setApprovedProfile(regDoc);
       try {
-        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(regDoc));
+        // 기기에는 비밀번호·코드 해시를 남기지 않음 (공용 기기에서 다른 사람이 해시로 로그인하지 못하도록)
+        const { passwordHash: _pw, claimPasswordHash: _claim, resetCodeHash: _code, resetProof: _proof, ...safeProfile } = regDoc;
+        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(safeProfile));
         localStorage.setItem(ACTIVE_STUDENT_STORAGE_KEY, regDoc.studentKey);
       } catch {
         // 기억하지 못해도 이번 접속은 계속
@@ -945,12 +937,7 @@ export default function App() {
       setCloudSyncStatus('idle');
       setSessionMode('student');
       recordStudentAccessLog({
-        studentKey: regDoc.studentKey,
-        school: regDoc.school,
-        grade: regDoc.grade,
-        classNum: regDoc.classNum,
-        studentNum: regDoc.studentNum,
-        name: regDoc.name,
+        profile: regDoc,
         eventType: 'resume',
         status: 'approved',
         deviceHash: regDoc.deviceHash,
@@ -1076,8 +1063,7 @@ export default function App() {
                     ) : (
                       <>
                         <UserCheck className="h-3.5 w-3.5 text-emerald-400" />
-                        학생 모드 · {approvedProfile?.school} {approvedProfile?.grade}-{approvedProfile?.classNum}-
-                        {approvedProfile?.studentNum} {approvedProfile?.name}
+                        학생 모드 · {approvedProfile ? v2FullLabel(approvedProfile) : ''}
                       </>
                     )}
                   </span>
@@ -1328,14 +1314,9 @@ export default function App() {
                     </div>
                     <div className="mt-1 text-base sm:text-lg font-extrabold text-slate-900">
                       {approvedProfile
-                        ? `${approvedProfile.school} ${approvedProfile.grade}학년 ${approvedProfile.classNum}반 ${approvedProfile.studentNum}번 ${approvedProfile.name}`
+                        ? `${approvedProfile.school} ${v2FullLabel(approvedProfile)}`
                         : `${student.group} ${student.code}`}
                     </div>
-                    {approvedProfile && (
-                      <div className="text-xs text-slate-500 mono mt-1">
-                        생년월일 {approvedProfile.birthDate} · 기기 식별자 {formatDeviceHashAsMac(approvedProfile.deviceHash)}
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -1483,7 +1464,7 @@ export default function App() {
                   <div className="text-xs text-slate-600 mt-1">
                     학생:{' '}
                     {approvedProfile
-                      ? `${approvedProfile.school} ${approvedProfile.grade}학년 ${approvedProfile.classNum}반 ${approvedProfile.studentNum}번 ${approvedProfile.name}`
+                      ? `${approvedProfile.school} ${v2FullLabel(approvedProfile)}`
                       : `${student.group} ${student.code}`}
                   </div>
                 </div>
@@ -1627,7 +1608,7 @@ export default function App() {
               <h3 id="confirm-dialog-title" className="text-lg font-extrabold text-slate-900">
                 {confirmDialog.title}
               </h3>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">{confirmDialog.message}</p>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed whitespace-pre-line">{confirmDialog.message}</p>
               <div className="mt-6 flex justify-end gap-2.5">
                 <button
                   type="button"

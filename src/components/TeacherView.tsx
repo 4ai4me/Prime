@@ -79,12 +79,10 @@ import {
 } from 'lucide-react';
 import { StudentAccessLog } from '../utils/auditLogger';
 import { AnswerText } from './AnswerText';
-import {
-  hasStudentPassword,
-  resetStudentPassword,
-  saveStudentAuthPolicy,
-  useStudentAuthPolicy,
-} from '../utils/studentPassword';
+import { isLegacyViewOpen, isV2Registration } from '../utils/studentIdentity';
+import { StudentRegistrationPanel } from './StudentRegistrationPanel';
+import { LegacyRecordsPanel } from './LegacyRecordsPanel';
+import { ReadOnlyAnswers } from './ReadOnlyAnswers';
 import { TeacherSaveBar, TeacherSaveStatus, serializeRuns } from './TeacherSaveBar';
 import { getCurriculumLesson } from '../lessons/curriculum';
 import { LESSON_PROGRESS_LABEL, isLessonReady } from '../lessons';
@@ -149,9 +147,6 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
   const detailRef = useRef<HTMLDivElement | null>(null);
 
   const [cloudRegistrations, setCloudRegistrations] = useState<FirestoreStudentRegistrationDoc[]>([]);
-  // 학생 비밀번호 사용 설정 (Func·Props와 공용)
-  const studentAuthPolicy = useStudentAuthPolicy();
-  const passwordSetCount = cloudRegistrations.filter((r) => hasStudentPassword(r)).length;
   // 학생별 차시 문서(student_registrations/{studentKey}/prime_lessons/*)
   const [lessonDocsByStudent, setLessonDocsByStudent] = useState<Map<string, StudentLessonSnapshot>>(() => new Map());
   // 교사 평가 저장 대기 (학생 문서 키 → 저장할 기록). 입력할 때마다 저장하지 않고 잠시 모아서 저장
@@ -166,7 +161,6 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
     },
     []
   );
-  const [approvalFilter, setApprovalFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [notice, setNotice] = useState<{ text: string; type: 'good' | 'warn' | 'info' }>({
     text: '학생 가입 신청 내역과 승인된 학생들의 탐구 답안이 실시간으로 동기화됩니다.',
     type: 'info',
@@ -175,7 +169,6 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
   const [isLessonAccessOpen, setIsLessonAccessOpen] = useState(true);
   const [isApprovalOpen, setIsApprovalOpen] = useState(true);
   const [isRecordsOpen, setIsRecordsOpen] = useState(true);
-  const [approvalSearchName, setApprovalSearchName] = useState('');
   const [recordsSearchName, setRecordsSearchName] = useState('');
   const [filterGroup, setFilterGroup] = useState<string>('all');
   const [filterEvalStatus, setFilterEvalStatus] = useState<'all' | 'complete' | 'partial' | 'none'>('all');
@@ -186,15 +179,16 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
   const [accessEventFilter, setAccessEventFilter] = useState<'all' | 'login' | 'register' | 'save' | 'resume'>('all');
   const [accessSearch, setAccessSearch] = useState<string>('');
 
+  // 새 방식(가상 정보) 가입 문서만 다룸 — 예전 방식 문서는 개인정보 정리 전까지 남아 있어도 화면에 쓰지 않음
   const applySnapshotDocs = useCallback((docs: FirestoreStudentRegistrationDoc[]) => {
-    setCloudRegistrations(docs);
+    setCloudRegistrations(docs.filter((d) => isV2Registration(d)));
   }, []);
 
   // 승인된 가입 문서 + Prime 차시 문서 + 교사 평가 문서를 합쳐 교사 화면의 학생 기록을 만듭니다.
   useEffect(() => {
     const approved: { regKey: string; record: StudentRecord }[] = [];
     for (const data of cloudRegistrations) {
-      if (data.status !== 'approved') continue;
+      if (data.status !== 'approved' || !isV2Registration(data)) continue;
       try {
         const base = createInitialStudentState();
         base.group = groupLabelOf(data);
@@ -375,145 +369,9 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
     return () => unsub();
   }, []);
 
-  const handleUpdateStudentStatus = async (
-    reg: FirestoreStudentRegistrationDoc,
-    nextStatus: 'approved' | 'rejected' | 'pending'
-  ) => {
-    const ref = doc(db, 'student_registrations', reg.studentKey);
-    try {
-      await updateDoc(ref, {
-        status: nextStatus,
-        updatedAt: serverTimestamp(),
-      });
-      setNotice({
-        text: `${reg.school} ${reg.grade}학년 ${reg.classNum}반 ${reg.studentNum}번 ${reg.name} 학생을 [${
-          nextStatus === 'approved' ? '가입 승인' : nextStatus === 'rejected' ? '반려' : '대기'
-        }] 처리했습니다.`,
-        type: nextStatus === 'approved' ? 'good' : 'info',
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `student_registrations/${reg.studentKey}`);
-    }
-  };
-
-  const handleBulkApprovePending = async () => {
-    const pendings = cloudRegistrations.filter((r) => r.status === 'pending');
-    if (!pendings.length) return;
-    try {
-      for (const reg of pendings) {
-        await updateDoc(doc(db, 'student_registrations', reg.studentKey), {
-          status: 'approved',
-          updatedAt: serverTimestamp(),
-        });
-      }
-      setNotice({
-        text: `승인 대기 중이던 학생 ${pendings.length}명을 일괄 승인 처리했습니다.`,
-        type: 'good',
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, 'student_registrations');
-    }
-  };
-
-  // ------------------------------------------------------------------
-  // 학생 비밀번호 관리 (사용 설정 · 초기화)
-  // ------------------------------------------------------------------
-  const handleToggleStudentPassword = (nextOn: boolean) => {
-    onRequestConfirm(
-      nextOn ? '학생 비밀번호 사용 켜기' : '학생 비밀번호 사용 끄기',
-      nextOn
-        ? '켜면 ① 새로 가입하는 학생은 비밀번호를 반드시 입력하고, ② 비밀번호가 없는 기존 가입 학생은 다음 로그인 때 비밀번호를 먼저 설정해야 활동지가 열리며, ③ 비밀번호를 설정한 학생은 다른 기기에서 로그인할 때 비밀번호가 필요합니다. 이 설정은 함수(Func)·명제(Props)·소인수분해(Prime) 사이트에 함께 적용됩니다. 켤까요?'
-        : '끄면 새로 가입하는 학생은 비밀번호 없이 가입하고, 비밀번호가 없는 학생에게 설정을 요구하지 않습니다. 이미 비밀번호를 설정한 학생은 보안을 위해 로그인할 때 계속 비밀번호가 필요합니다 (필요하면 학생별로 초기화하세요). 끌까요?',
-      async () => {
-        try {
-          await saveStudentAuthPolicy(nextOn, adminEmail);
-          setNotice({
-            text: nextOn ? '학생 비밀번호 사용을 켰습니다.' : '학생 비밀번호 사용을 껐습니다.',
-            type: 'good',
-          });
-        } catch (err) {
-          console.error('Failed to save student password policy:', err);
-          setNotice({
-            text: `비밀번호 사용 설정 저장 실패: ${err instanceof Error ? err.message : String(err)} (교사 Google 로그인 상태와 보안 규칙 게시 여부를 확인해 주세요)`,
-            type: 'warn',
-          });
-        }
-      }
-    );
-  };
-
-  const handleResetStudentPassword = (reg: FirestoreStudentRegistrationDoc) => {
-    onRequestConfirm(
-      '학생 비밀번호 초기화',
-      `${reg.school} ${reg.grade}-${reg.classNum}-${reg.studentNum} ${reg.name} 학생의 비밀번호를 초기화할까요? 학생은 다음 로그인 때 이름·생년월일로 입장한 뒤 새 비밀번호를 설정하게 됩니다. (활동지 내용은 그대로 유지됩니다)`,
-      async () => {
-        try {
-          await resetStudentPassword(reg.studentKey);
-          setNotice({ text: `${reg.name} 학생의 비밀번호를 초기화했습니다.`, type: 'good' });
-        } catch (err) {
-          console.error(`Password reset failed for ${reg.studentKey}:`, err);
-          setNotice({
-            text: `비밀번호 초기화 실패: ${err instanceof Error ? err.message : String(err)}`,
-            type: 'warn',
-          });
-        }
-      }
-    );
-  };
-
-  const handleDeleteStudentRegistration = (reg: FirestoreStudentRegistrationDoc) => {
-    onRequestConfirm(
-      '가입 신청 및 기기 잠금 삭제',
-      `${reg.school} ${reg.grade}-${reg.classNum}-${reg.studentNum} ${reg.name} 학생의 가입 기록과 기기 중복 방지 잠금(MAC ${formatDeviceHashAsMac(
-        reg.deviceHash
-      )})을 모두 삭제할까요?`,
-      async () => {
-        try {
-          await deleteDoc(doc(db, 'student_registrations', reg.studentKey));
-          await deleteDoc(doc(db, 'device_locks', reg.deviceHash));
-          setNotice({
-            text: `${reg.name} 학생의 가입 기록 및 기기 잠금이 해제되었습니다.`,
-            type: 'info',
-          });
-        } catch (err) {
-          handleFirestoreError(err, OperationType.DELETE, `student_registrations/${reg.studentKey}`);
-        }
-      }
-    );
-  };
-
-  // Detect duplicate MAC address (deviceHash) across registrations for teacher warning badge
-  const deviceCounts: Record<string, number> = {};
-  for (const r of cloudRegistrations) {
-    if (r.deviceHash) deviceCounts[r.deviceHash] = (deviceCounts[r.deviceHash] || 0) + 1;
-  }
-
   const pendingCount = cloudRegistrations.filter((r) => r.status === 'pending').length;
   const approvedCount = cloudRegistrations.filter((r) => r.status === 'approved').length;
   const rejectedCount = cloudRegistrations.filter((r) => r.status === 'rejected').length;
-
-  const filteredRegistrations = cloudRegistrations
-    .filter((r) => {
-      if (approvalFilter !== 'all' && r.status !== approvalFilter) return false;
-      if (approvalSearchName.trim()) {
-        const q = approvalSearchName.trim().toLowerCase();
-        const matchName = (r.name || '').toLowerCase().includes(q);
-        const matchCode = `${r.grade}${r.classNum}${r.studentNum}`.includes(q);
-        const matchSchool = (r.school || '').toLowerCase().includes(q);
-        return matchName || matchCode || matchSchool;
-      }
-      return true;
-    })
-    .slice()
-    .sort((a, b) => {
-      const gDiff = (parseInt(a.grade, 10) || 0) - (parseInt(b.grade, 10) || 0);
-      if (gDiff !== 0) return gDiff;
-      const cDiff = (parseInt(a.classNum, 10) || 0) - (parseInt(b.classNum, 10) || 0);
-      if (cDiff !== 0) return cDiff;
-      const nDiff = (parseInt(a.studentNum, 10) || 0) - (parseInt(b.studentNum, 10) || 0);
-      if (nDiff !== 0) return nDiff;
-      return (a.name || '').localeCompare(b.name || '', 'ko');
-    });
 
   const parseLogDate = (val: unknown): Date | null => {
     if (!val) return null;
@@ -607,7 +465,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
       const q = accessSearch.trim().toLowerCase();
       const match =
         log.name.toLowerCase().includes(q) ||
-        log.school.toLowerCase().includes(q) ||
+        (log.classNum || '').toLowerCase().includes(q) ||
         log.studentKey.toLowerCase().includes(q) ||
         log.ipAddress.toLowerCase().includes(q) ||
         formatDeviceHashAsMac(log.deviceHash).toLowerCase().includes(q);
@@ -626,10 +484,9 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
       '접속시각',
       '이벤트구분',
       '승인상태',
-      '학교',
+      '년도',
       '학년',
       '반',
-      '번호',
       '이름',
       '학생식별키',
       '기기MAC식별자',
@@ -642,10 +499,9 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
         csvSafe(timeStr),
         csvSafe(log.eventType),
         csvSafe(log.status),
-        csvSafe(log.school),
+        csvSafe(log.year || ''),
         csvSafe(log.grade),
         csvSafe(log.classNum),
-        csvSafe(log.studentNum),
         csvSafe(log.name),
         csvSafe(log.studentKey),
         csvSafe(formatDeviceHashAsMac(log.deviceHash)),
@@ -1164,7 +1020,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
                 학생 가입 관리 · 관리자 ({adminEmail})
               </div>
               <h2 className="mt-0.5 text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
-                학생 가입 신청 승인 · 기기(MAC 주소) 중복 관리
+                학생 가입 신청 승인 · 새 이름 반 관리
                 {!isApprovalOpen && (
                   <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                     신청 {cloudRegistrations.length}명 (대기 {pendingCount} · 승인 {approvedCount} · 반려 {rejectedCount})
@@ -1183,276 +1039,34 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
               <RefreshCw className="h-3.5 w-3.5" />
               새로고침
             </button>
-            {pendingCount > 0 && isApprovalOpen && (
-              <button
-                type="button"
-                onClick={handleBulkApprovePending}
-                className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition-colors"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                대기 일괄 승인 ({pendingCount}명)
-              </button>
-            )}
           </div>
         </div>
 
         {isApprovalOpen && (
-          <div className="mt-4 pt-4 border-t border-slate-100 space-y-4">
-            {pendingCount > 0 && (
-              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 sm:p-4 flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-                  <div className="text-xs sm:text-sm text-amber-900 font-bold">
-                    현재 승인 대기 중인 학생이 <span className="underline font-extrabold text-amber-950">{pendingCount}명</span> 있습니다.
-                    교사가 가입을 승인해야 학생 활동지가 클라우드에 실시간 저장되고 아래 탐구 기록실에 표시됩니다.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleBulkApprovePending}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 text-xs font-extrabold transition-colors shadow-xs"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  대기 학생 {pendingCount}명 즉시 일괄 승인
-                </button>
-              </div>
-            )}
-
-            {/* 학생 비밀번호 사용 설정 (기본: 사용 안 함) */}
-            <div
-              className={`rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                studentAuthPolicy.passwordRequired ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-50'
-              }`}
-            >
-              <div className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-                <div className="flex items-center gap-1.5 font-extrabold text-slate-900">
-                  <KeyRound className="h-4 w-4 text-blue-600" />
-                  학생 비밀번호 사용:{' '}
-                  {studentAuthPolicy.passwordRequired ? (
-                    <span className="text-blue-700">사용 중</span>
-                  ) : (
-                    <span className="text-slate-500">사용 안 함</span>
-                  )}
-                </div>
-                <div className="mt-0.5 text-[11px] sm:text-xs text-slate-500">
-                  켜면 가입 시 비밀번호가 필수가 되고, 비밀번호가 없는 기존 학생은 다음 로그인 때 비밀번호를 먼저 설정합니다.
-                  비밀번호 설정 학생 {passwordSetCount}명 / 전체 {cloudRegistrations.length}명 · 선생님의 모든 수학 수업 사이트(함수·명제·소인수분해) 공통 설정
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={!studentAuthPolicy.loaded}
-                onClick={() => handleToggleStudentPassword(!studentAuthPolicy.passwordRequired)}
-                className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-50 ${
-                  studentAuthPolicy.passwordRequired
-                    ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {studentAuthPolicy.passwordRequired ? '비밀번호 사용 끄기' : '비밀번호 사용 켜기'}
-              </button>
-            </div>
-
-            <p className="text-sm text-slate-600 leading-relaxed">
-              학생이 <strong>학교 / 학년 / 반 / 번호 / 생년월일 / 이름</strong>으로 가입을 신청하면 이곳에 실시간으로 표시됩니다.
-              학교 공용 네트워크 환경을 고려하여 IP는 검사하지 않으며, <strong>기기 고유 MAC 주소 식별자</strong> 기준으로만 중복을 식별합니다.
-            </p>
-
-            {/* Filter and Search Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-wrap">
-              {/* Student Name Search Input */}
-              <div className="relative min-w-[220px] sm:w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={approvalSearchName}
-                  onChange={(e) => setApprovalSearchName(e.target.value)}
-                  placeholder="학생 이름 검색 (예: 홍길동)..."
-                  className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                />
-                {approvalSearchName && (
-                  <button
-                    type="button"
-                    onClick={() => setApprovalSearchName('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    title="검색어 지우기"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Status Filter Buttons */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setApprovalFilter('all')}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
-                    approvalFilter === 'all'
-                      ? 'bg-slate-900 text-white'
-                      : 'border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  전체 ({cloudRegistrations.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setApprovalFilter('pending')}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
-                    approvalFilter === 'pending'
-                      ? 'bg-amber-600 text-white'
-                      : 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                  }`}
-                >
-                  승인 대기 ({pendingCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setApprovalFilter('approved')}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
-                    approvalFilter === 'approved'
-                      ? 'bg-emerald-600 text-white'
-                      : 'border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                  }`}
-                >
-                  승인 완료 ({approvedCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setApprovalFilter('rejected')}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
-                    approvalFilter === 'rejected'
-                      ? 'bg-rose-600 text-white'
-                      : 'border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100'
-                  }`}
-                >
-                  반려됨 ({rejectedCount})
-                </button>
-              </div>
-            </div>
-
-            {/* Approval Table */}
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-              <table className="w-full min-w-[820px] border-collapse text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-600 text-xs font-bold border-b border-slate-200">
-                    <th className="py-3 px-3.5 text-left">상태</th>
-                    <th className="py-3 px-3.5 text-left">학교 / 학년 / 반 / 번호</th>
-                    <th className="py-3 px-3.5 text-left">이름</th>
-                    <th className="py-3 px-3.5 text-left">생년월일</th>
-                    <th className="py-3 px-3.5 text-left">기기 고유 MAC 주소 식별자 (중복 점검)</th>
-                    <th className="py-3 px-3.5 text-left">비밀번호</th>
-                    <th className="py-3 px-3.5 text-left">관리자 승인 처리</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filteredRegistrations.length > 0 ? (
-                    filteredRegistrations.map((reg) => {
-                      const isDupDev = reg.deviceHash && deviceCounts[reg.deviceHash] > 1;
-                      return (
-                        <tr key={reg.studentKey} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-3.5">
-                            {reg.status === 'pending' && (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2.5 py-1 text-xs font-bold text-amber-800">
-                                <Clock className="h-3.5 w-3.5" /> 승인 대기
-                              </span>
-                            )}
-                            {reg.status === 'approved' && (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-bold text-emerald-800">
-                                <UserCheck className="h-3.5 w-3.5" /> 승인됨
-                              </span>
-                            )}
-                            {reg.status === 'rejected' && (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 border border-rose-200 px-2.5 py-1 text-xs font-bold text-rose-800">
-                                <XCircle className="h-3.5 w-3.5" /> 반려됨
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3.5 font-semibold text-slate-800">
-                            {reg.school} {reg.grade}학년 {reg.classNum}반 {reg.studentNum}번
-                          </td>
-                          <td className="py-3 px-3.5 font-bold text-slate-900">{reg.name}</td>
-                          <td className="py-3 px-3.5 mono text-xs text-slate-600">{reg.birthDate}</td>
-                          <td className="py-3 px-3.5 mono text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <Fingerprint className="h-3.5 w-3.5 text-blue-600" />
-                              <span className="text-slate-700">MAC: {formatDeviceHashAsMac(reg.deviceHash)}</span>
-                              {isDupDev && (
-                                <span className="inline-flex items-center gap-0.5 text-rose-600 font-bold">
-                                  <ShieldAlert className="h-3.5 w-3.5" /> 동일 MAC 중복 ({deviceCounts[reg.deviceHash]}명)
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-3.5 text-xs">
-                            {hasStudentPassword(reg) ? (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
-                                  <KeyRound className="h-3.5 w-3.5" /> 설정됨
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleResetStudentPassword(reg)}
-                                  className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition-colors"
-                                  title="비밀번호를 잊은 학생: 초기화 후 다음 로그인 때 새로 설정"
-                                >
-                                  초기화
-                                </button>
-                              </div>
-                            ) : (
-                              <span className={studentAuthPolicy.passwordRequired ? 'font-bold text-rose-600' : 'text-slate-400'}>
-                                {studentAuthPolicy.passwordRequired ? '미설정 (다음 로그인 때 설정)' : '없음'}
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3.5">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {reg.status !== 'approved' && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateStudentStatus(reg, 'approved')}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors"
-                                >
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                  가입 승인
-                                </button>
-                              )}
-                              {reg.status !== 'rejected' && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateStudentStatus(reg, 'rejected')}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors"
-                                >
-                                  반려
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteStudentRegistration(reg)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-                              >
-                                삭제
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={7} className="py-8 px-4 text-center text-slate-500">
-                        {approvalSearchName
-                          ? `'${approvalSearchName}' 학생 이름을 포함하는 가입 신청 내역이 없습니다.`
-                          : '현재 해당 상태의 학생 가입 신청 내역이 없습니다.'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <StudentRegistrationPanel
+              registrations={cloudRegistrations}
+              adminEmail={adminEmail}
+              onNotice={(text, type) => setNotice({ text, type })}
+              onRequestConfirm={onRequestConfirm}
+            />
           </div>
         )}
       </div>
+
+      {/* 이전 기록 (2026-11-28 이전 가입 학생, 가명 처리) — 교사만, 2027-03-31까지 읽기 전용 */}
+      {isLegacyViewOpen() && (
+        <LegacyRecordsPanel
+          lessonDocsByStudent={lessonDocsByStudent}
+          buildRecord={(archive, snap) => {
+            const base = createInitialStudentState();
+            base.group = "이전 기록";
+            base.code = archive.legacySerial;
+            return assembleRecord(base, snap);
+          }}
+          renderRecord={(record) => <ReadOnlyAnswers record={record} />}
+        />
+      )}
 
       {/* SECTION: Real-time Student Access Logs (Live Audit Trail) */}
       <div className="rounded-2xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/60 via-white to-slate-50 p-5 sm:p-7 shadow-xs">
@@ -1693,7 +1307,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
                           </td>
                           <td className="py-2.5 px-3 whitespace-nowrap">
                             <div className="font-bold text-slate-900">
-                              {log.school} {log.grade}학년 {log.classNum}반 {log.studentNum}번
+                              {log.year || ''} {log.grade} {log.classNum}
                             </div>
                             <div className="text-[11px] font-semibold text-indigo-700">
                               {log.name}

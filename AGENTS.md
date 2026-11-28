@@ -36,7 +36,7 @@ git config user.name && git config user.email   # 위 두 값이 나오는지 �
 
 - 가입 문서(`student_registrations`)·비밀번호 설정·접속 기록은 Func·Props와 **같이** 씁니다. 비밀번호 해시 방식(`passwordCore.ts`)은 바꾸지 않습니다.
 - 저장 칸 이름과 형식은 학생 기록·보안 규칙과의 약속입니다. 한 번 학생이 쓰기 시작한 뒤에는 이름을 바꾸거나 옮기지 않습니다(옮기려면 Tier 3로 따로 계획).
-- **보안 규칙**: `firestore.rules`는 Func·Props·Prime이 한 데이터베이스를 쓰므로 세 저장소의 파일이 같아야 합니다. 한쪽을 고치면 나머지 두 저장소에도 똑같이 반영하고, Firebase 콘솔에 게시합니다.
+- **보안 규칙**: `firestore.rules`는 Func·Props·Prime·Rational이 한 데이터베이스를 쓰므로 네 저장소의 파일이 같아야 합니다. 한쪽을 고치면 나머지 세 저장소에도 똑같이 반영하고, Firebase 콘솔에 게시합니다.
 
 ## 차시 자료 채우는 순서
 
@@ -53,3 +53,12 @@ git config user.name && git config user.email   # 위 두 값이 나오는지 �
 
 - 학생 화면의 잠금 판단은 반드시 `effectiveLessonAccess`(반 설정 → 없으면 전체 설정)로 합니다.
 - 입력 칸에 예시 답(`placeholder`)을 넣지 않고, 필요하면 `💡 힌트 보기` 토글로 안내합니다.
+
+## 학생 가입·로그인 (2026-11-28~ 가상 정보 방식)
+
+- 학생은 실명·학번·생년월일 없이 **랜덤 이름 · 학년(중1~고3) · 새 이름 반 · 비밀번호**로 가입합니다. 실명이나 학번을 받는 칸, 저장 항목, 로그를 다시 만들지 않습니다.
+- 아래 파일은 Func·Props·Prime·Rational **네 저장소에서 똑같아야** 합니다. 한쪽을 고치면 나머지 세 곳에 그대로 복사합니다.
+  - `firestore.rules`, `src/utils/studentIdentity.ts`(+테스트), `src/utils/studentAccount.ts`, `src/utils/legacyCleanup.ts`, `src/utils/passwordCore.ts`(+테스트), `src/utils/authLogic.ts`(+테스트), `src/utils/auditLogger.ts`, `src/utils/studentDraft.ts`(+테스트), `src/components/StudentPortal.tsx`, `src/components/StudentRegistrationPanel.tsx`, `src/components/LegacyRecordsPanel.tsx`, `src/main.tsx`
+  - 사이트마다 다른 부분(제목, 첫 활동지 형식)은 `src/components/AuthGateView.tsx`에서 props로 넘깁니다.
+- 가입 문서 키는 `v2_{이름}`이고 `schema: 2`입니다. 예전 방식 문서(키 `stu_…`)와 이전기록(`legacy_…`)은 학생이 열 수 없어야 합니다 — 보안 규칙의 `isV2Doc` 검사를 지우지 않습니다.
+- 반 키는 `년도|학년|반이름`입니다(`classLessonAccess.ts`의 `makeClassKey`).

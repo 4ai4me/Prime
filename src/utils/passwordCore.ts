@@ -1,8 +1,9 @@
 /**
  * 학생 비밀번호 — 순수 로직 (Firebase에 의존하지 않음, 단위 테스트 대상)
  * ------------------------------------------------------------------
- * ⚠️ Func와 Props는 같은 데이터베이스·같은 학생을 공유하므로, 이 파일의 해시 방식은
- *    두 저장소에서 반드시 똑같아야 합니다. 바꾸면 기존 비밀번호가 모두 맞지 않게 됩니다.
+ * ⚠️ Func·Props·Prime·Rational은 같은 데이터베이스·같은 학생을 공유하므로, 이 파일의 해시 방식은
+ *    네 저장소에서 반드시 똑같아야 합니다. 바꾸면 기존 비밀번호가 모두 맞지 않게 됩니다.
+ * - 2026-11-28~ 비밀번호는 가입할 때 항상 필수입니다 (켜고 끄는 설정 없음).
  *
  * - 비밀번호 원문은 어디에도 저장하지 않고, SHA-256 해시(64자리 16진수)만 저장합니다.
  * - 해시에 학생 키를 섞어(salt) 같은 비밀번호라도 학생마다 해시가 다르게 만듭니다.
@@ -22,14 +23,6 @@ export function isPasswordHash(value: unknown): value is string {
 /** 학생에게 비밀번호가 설정되어 있는지 */
 export function hasStudentPassword(doc: { passwordHash?: unknown } | null | undefined): boolean {
   return isPasswordHash(doc?.passwordHash);
-}
-
-/** 비밀번호 사용 설정이 켜져 있는데 아직 비밀번호가 없어 먼저 설정해야 하는지 */
-export function needsPasswordSetup(
-  passwordRequired: boolean,
-  doc: { passwordHash?: unknown } | null | undefined
-): boolean {
-  return passwordRequired && !hasStudentPassword(doc);
 }
 
 export async function hashStudentPassword(studentKey: string, password: string): Promise<string> {

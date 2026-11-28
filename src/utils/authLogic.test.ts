@@ -1,13 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  STUDENT_PASSWORD_FEATURE_ENABLED,
   isAuthorizedAdminEmail,
-  buildSafeStudentKey,
-  normalizeBirthDate,
-  isSameBirthDate,
   validateStudentPassword,
-  validateStudentRegistrationInput,
   computeDeterministicDeviceHash,
   formatDeviceHashAsMac,
 } from './authLogic.ts';
@@ -20,42 +15,7 @@ test('isAuthorizedAdminEmail strictly allows verified liha1634@gmail.com', () =>
   assert.equal(isAuthorizedAdminEmail(null, true), false);
 });
 
-test('buildSafeStudentKey produces valid Firestore ID matching ^[a-zA-Z0-9_\\-]+$', () => {
-  const key = buildSafeStudentKey({
-    school: '수일고등학교',
-    grade: '1',
-    classNum: '9',
-    studentNum: '1',
-  });
-  assert.match(key, /^[a-zA-Z0-9_\-]+$/);
-  assert.ok(key.length >= 3 && key.length <= 120);
-  assert.ok(key.endsWith('_g1_c09_n01'));
-});
-
-test('validateStudentRegistrationInput validates school, grade, class, number, birthDate, and name', () => {
-  const valid = validateStudentRegistrationInput({
-    school: '수일고등학교',
-    grade: '1',
-    classNum: '9',
-    studentNum: '1',
-    birthDate: '2010-02-12',
-    name: '강유진',
-  });
-  assert.equal(valid.ok, true);
-
-  const invalidBirth = validateStudentRegistrationInput({
-    school: '수일고등학교',
-    grade: '1',
-    classNum: '9',
-    studentNum: '1',
-    birthDate: '123',
-    name: '강유진',
-  });
-  assert.equal(invalidBirth.ok, false);
-});
-
-test('validateStudentPassword enforces 8..32 chars, uppercase, lowercase, digit, and special char, and feature flag is disabled by default', () => {
-  assert.equal(STUDENT_PASSWORD_FEATURE_ENABLED, false);
+test('validateStudentPassword enforces 8..32 chars, uppercase, lowercase, digit, and special char', () => {
 
   // Valid password
   const good = validateStudentPassword('MathDet#2026');
@@ -80,16 +40,9 @@ test('validateStudentPassword enforces 8..32 chars, uppercase, lowercase, digit,
   assert.equal(validateStudentPassword('MathDet2026').ok, false);
 });
 
-test('isSameBirthDate matches 6-digit YYMMDD and 8-digit YYYY-MM-DD', () => {
-  assert.equal(isSameBirthDate('100212', '2010-02-12'), true);
-  assert.equal(isSameBirthDate('20100212', '100212'), true);
-  assert.equal(isSameBirthDate('100212', '100213'), false);
-});
-
 test('computeDeterministicDeviceHash and formatDeviceHashAsMac produce consistent identifiers', () => {
   const hash = computeDeterministicDeviceHash('iPadOS_Safari_820x1180_token123');
   assert.match(hash, /^DEV_[0-9A-F]{12}$/);
   const mac = formatDeviceHashAsMac(hash);
   assert.match(mac, /^[0-9A-F]{2}(:[0-9A-F]{2}){5}$/);
-  assert.equal(normalizeBirthDate('20090512'), '2009-05-12');
 });

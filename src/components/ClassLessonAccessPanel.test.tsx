@@ -7,14 +7,14 @@ import { withClassLessonAccess } from '../utils/classLessonAccess';
 import { ACCESS_TARGET_ALL, ClassLessonAccessPanel } from './ClassLessonAccessPanel';
 
 const global = createLessonAccessPreset('upTo3');
-const classMap = withClassLessonAccess({}, '수일고|1|1', createLessonAccessPreset('upTo5'));
-const keys = ['수일고|1|1', '수일고|1|2'];
+const classMap = withClassLessonAccess({}, '2026|중1|참새반', createLessonAccessPreset('upTo5'));
+const keys = ['2026|중1|참새반', '2026|중1|까치반'];
 
 const render = (target: string) =>
   renderToStaticMarkup(
     <ClassLessonAccessPanel
       classKeys={keys}
-      studentCountByClass={{ '수일고|1|1': 25, '수일고|1|2': 24 }}
+      studentCountByClass={{ '2026|중1|참새반': 25, '2026|중1|까치반': 24 }}
       classMap={classMap}
       globalConfig={global}
       target={target}
@@ -32,18 +32,18 @@ const rowOpenCount = (html: string, key: string) => {
 test('반별 현황 표: 반별 설정 반은 자기 설정, 없는 반은 전체 설정', () => {
   const html = render(ACCESS_TARGET_ALL);
   assert.equal(rowOpenCount(html, ACCESS_TARGET_ALL), 3);
-  assert.equal(rowOpenCount(html, '수일고|1|1'), 5);
-  assert.equal(rowOpenCount(html, '수일고|1|2'), 3);
-  assert.ok(html.includes('수일고 1학년 1반 (25명) · 반별 설정'));
-  assert.ok(html.includes('수일고 1학년 2반 (24명)'));
+  assert.equal(rowOpenCount(html, '2026|중1|참새반'), 5);
+  assert.equal(rowOpenCount(html, '2026|중1|까치반'), 3);
+  assert.ok(html.includes('2026 중1 참새반 (25명) · 반별 설정'));
+  assert.ok(html.includes('2026 중1 까치반 (24명)'));
   assert.ok(!html.includes('전체 설정으로 되돌리기'), '전체가 대상일 때는 되돌리기 버튼 없음');
 });
 
 test('대상 반에 따라 안내와 되돌리기 버튼', () => {
-  const own = render('수일고|1|1');
+  const own = render('2026|중1|참새반');
   assert.ok(own.includes('이 반을 전체 설정으로 되돌리기'));
   assert.ok(own.includes('반별 설정</strong>을 쓰고 있습니다'));
-  const follow = render('수일고|1|2');
+  const follow = render('2026|중1|까치반');
   assert.ok(!follow.includes('이 반을 전체 설정으로 되돌리기'));
   assert.ok(follow.includes('전체 설정을 따르고'));
 });

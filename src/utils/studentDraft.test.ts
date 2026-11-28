@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createInitialStudentState } from './mathLogic';
 import { codeLabelOf, groupLabelOf, isRecordOfStudent, studentDraftKey } from './studentDraft';
 
-const A = { school: '하연고등학교', grade: '1', classNum: '1', studentNum: '1', name: '김철수' };
-const B = { school: '하연고등학교', grade: '1', classNum: '1', studentNum: '2', name: '이영희' };
+const A = { year: '2026', grade: '중1', className: '참새반', name: '김하늘' };
+const B = { year: '2026', grade: '중1', className: '참새반', name: '이바다' };
 
 function recordOf(p: typeof A) {
   const r = createInitialStudentState();
@@ -20,12 +20,12 @@ test('같은 학생의 기기 보관본만 합칠 대상으로 인정한다 (공
   assert.equal(isRecordOfStudent(null, A), false);
 });
 
-test('표시 이름 형식은 기존 화면과 같다 (기존 보관본 인식)', () => {
-  assert.equal(codeLabelOf(A), '10101_김철수');
-  assert.equal(groupLabelOf(A), '하연고등학교 1학년 1반');
+test('표시 이름 형식: 반 묶음 = 년도 학년 반, 학생 구분 = 가상 이름', () => {
+  assert.equal(codeLabelOf(A), '김하늘');
+  assert.equal(groupLabelOf(A), '2026 중1 참새반');
 });
 
 test('학생별 보관 키는 학생마다 다르다', () => {
-  assert.notEqual(studentDraftKey('base', 'stu_a'), studentDraftKey('base', 'stu_b'));
-  assert.equal(studentDraftKey('base', 'stu_a'), 'base::stu_a');
+  assert.notEqual(studentDraftKey('base', 'v2_김하늘'), studentDraftKey('base', 'v2_이바다'));
+  assert.equal(studentDraftKey('base', 'v2_김하늘'), 'base::v2_김하늘');
 });

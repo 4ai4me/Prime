@@ -3,8 +3,9 @@
  *
  * - 전체 잠금(app_settings/prime_lesson_access)은 그대로 기본값입니다.
  * - 반별 설정(app_settings/prime_lesson_access_classes)에 그 반이 있으면, 그 반 학생은 반별 설정을 따릅니다.
- * - 반은 가입 정보의 학교·학년·반으로 구분합니다. 학생 개인 정보는 이 문서에 넣지 않습니다.
+ * - 반은 가입 정보의 년도·학년·반 이름으로 구분합니다. 학생 개인 정보는 이 문서에 넣지 않습니다.
  */
+import { gradeOrder } from './studentIdentity';
 import {
   ALL_LESSON_NUMBERS,
   normalizeLessonAccess,
@@ -22,42 +23,43 @@ const KEY_SEP = '|';
 export type ClassLessonAccessMap = Record<string, LessonAccessConfig>;
 
 export interface ClassIdentity {
-  school?: string | null;
+  year?: string | null;
   grade?: string | number | null;
-  classNum?: string | number | null;
+  className?: string | null;
 }
 
 function cleanPart(v: unknown): string {
-  const s = String(v ?? '').replace(/\s+/g, ' ').trim().replace(/\|/g, '');
-  // '03'과 '3'은 같은 반
-  return /^\d+$/.test(s) ? String(Number(s)) : s;
+  return String(v ?? '').replace(/\s+/g, '').trim().replace(/\|/g, '');
 }
 
-/** 학교·학년·반 → 반 키 (예: '수일고|1|3'). 셋 중 하나라도 비면 null */
+/**
+ * 년도·학년·반 이름 → 반 키 (예: '2026|중1|참새반'). 셋 중 하나라도 비면 null
+ * (2026-11-28~ 가상 정보 가입. 예전 키 '학교|학년|반'은 개인정보 정리 때 지움)
+ */
 export function makeClassKey(info: ClassIdentity | null | undefined): string | null {
   if (!info) return null;
-  const school = cleanPart(info.school);
+  const year = cleanPart(info.year);
   const grade = cleanPart(info.grade);
-  const classNum = cleanPart(info.classNum);
-  if (!school || !grade || !classNum) return null;
-  return [school, grade, classNum].join(KEY_SEP);
+  const className = cleanPart(info.className);
+  if (!year || !grade || !className) return null;
+  return [year, grade, className].join(KEY_SEP);
 }
 
-/** 반 키 → 화면 이름 (예: '수일고 1학년 3반') */
+/** 반 키 → 화면 이름 (예: '2026 중1 참새반') */
 export function classKeyLabel(key: string): string {
-  const [school, grade, classNum] = key.split(KEY_SEP);
-  if (!school || !grade || !classNum) return key;
-  return `${school} ${grade}학년 ${classNum}반`;
+  const [year, grade, className] = key.split(KEY_SEP);
+  if (!year || !grade || !className) return key;
+  return `${year} ${grade} ${className}`;
 }
 
-/** 반 키 정렬: 학교 → 학년(숫자) → 반(숫자) */
+/** 반 키 정렬: 년도(최근 먼저) → 학년(중1~고3) → 반 이름 */
 export function compareClassKeys(a: string, b: string): number {
-  const [sa, ga, ca] = a.split(KEY_SEP);
-  const [sb, gb, cb] = b.split(KEY_SEP);
-  if (sa !== sb) return (sa || '').localeCompare(sb || '', 'ko');
-  const gd = (parseInt(ga, 10) || 0) - (parseInt(gb, 10) || 0);
+  const [ya, ga, ca] = a.split(KEY_SEP);
+  const [yb, gb, cb] = b.split(KEY_SEP);
+  if (ya !== yb) return (yb || '').localeCompare(ya || '');
+  const gd = gradeOrder(ga || '') - gradeOrder(gb || '');
   if (gd !== 0) return gd;
-  return (parseInt(ca, 10) || 0) - (parseInt(cb, 10) || 0);
+  return (ca || '').localeCompare(cb || '', 'ko');
 }
 
 function stripMeta(config: LessonAccessConfig): LessonAccessConfig {

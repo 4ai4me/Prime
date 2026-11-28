@@ -1,4 +1,5 @@
 import type { StudentRecord } from './mathLogic';
+import { v2CodeLabel, v2GroupLabel, type V2IdentityLike } from './studentIdentity';
 
 /**
  * 학생별 기기 임시 보관(localStorage) — 순수 로직 (단위 테스트 대상)
@@ -13,23 +14,16 @@ import type { StudentRecord } from './mathLogic';
  *  - 로그아웃할 때 서버 저장이 확인되면 그 학생의 보관본을 지웁니다.
  */
 
-export interface StudentIdentityLike {
-  school: string;
-  grade: string;
-  classNum: string;
-  studentNum: string;
-  name: string;
-}
+export type StudentIdentityLike = V2IdentityLike;
 
+/** 활동지 머리글의 반 묶음 (예: '2026 중1 참새반') */
 export function groupLabelOf(p: StudentIdentityLike): string {
-  return `${p.school} ${p.grade}학년 ${p.classNum}반`.slice(0, 25);
+  return v2GroupLabel(p);
 }
 
+/** 활동지 머리글의 학생 구분 (가상 이름) */
 export function codeLabelOf(p: StudentIdentityLike): string {
-  return `${p.grade}${String(p.classNum).padStart(2, '0')}${String(p.studentNum).padStart(2, '0')}_${p.name}`.slice(
-    0,
-    25
-  );
+  return v2CodeLabel(p);
 }
 
 /** 학생별 임시 보관 키 */
@@ -37,7 +31,7 @@ export function studentDraftKey(baseKey: string, studentKey: string): string {
   return `${baseKey}::${studentKey}`;
 }
 
-/** 기기에 남아 있던 활동지가 이 학생의 것인지 (학번·이름 표시가 일치) */
+/** 기기에 남아 있던 활동지가 이 학생의 것인지 (반 묶음·이름 표시가 일치) */
 export function isRecordOfStudent(
   record: Pick<StudentRecord, 'code' | 'group'> | null | undefined,
   profile: StudentIdentityLike

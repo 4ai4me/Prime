@@ -5,7 +5,6 @@ import {
   hasStudentPassword,
   isPasswordHash,
   makeClaimProof,
-  needsPasswordSetup,
 } from './passwordCore';
 
 // 보안 규칙(firestore.rules)의 claimPasswordHash 형식과 같아야 함
@@ -37,12 +36,9 @@ test('재연결 증명은 규칙 형식을 따르고, 매번 달라지며, 앞�
   assert.equal(p1.split(':')[0], h);
 });
 
-test('비밀번호 설정 필요 여부', () => {
-  const hash = 'a'.repeat(64);
-  assert.equal(needsPasswordSetup(false, {}), false, '사용 안 함이면 요구하지 않음 (기본값)');
-  assert.equal(needsPasswordSetup(true, {}), true, '사용 중 + 비밀번호 없음 → 설정 필요');
-  assert.equal(needsPasswordSetup(true, { passwordHash: '' }), true, '초기화된 학생 → 설정 필요');
-  assert.equal(needsPasswordSetup(true, { passwordHash: hash }), false);
+test('비밀번호 해시 형식 검사', () => {
+  assert.equal(hasStudentPassword({ passwordHash: 'a'.repeat(64) }), true);
   assert.equal(hasStudentPassword({ passwordHash: 'not-a-hash' }), false);
+  assert.equal(hasStudentPassword({}), false);
   assert.equal(isPasswordHash(''), false);
 });
