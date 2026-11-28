@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BIRD_NAMES,
+  BLOCKED_NAME_PARTS,
   FIXED_SCHOOL_NAME,
   GRADE_OPTIONS,
   LEGACY_PROFILE_STORAGE_KEY,
@@ -76,6 +77,33 @@ test('랜덤 이름: 2~4자 한글, 규칙 형식과 같음, 금지 이름 없�
     lengths.add(n.length);
   }
   assert.deepEqual([...lengths].sort(), [2, 3, 4]);
+});
+
+test('랜덤 이름: 놀림·혐오·성적인 말이 들어간 이름은 만들지 않음 (20만 번)', () => {
+  const rnd = seeded(2026);
+  for (let i = 0; i < 200000; i++) {
+    const n = generateRandomName(rnd);
+    const bad = BLOCKED_NAME_PARTS.find((w) => n.includes(w));
+    assert.equal(bad, undefined, `${n}에 '${bad}'가 들어 있음`);
+  }
+  for (const n of ['김성기', '황보지윤', '변태수', '노예린', '고아라', '구라현', '변기수', '나가라', '이운지', '박성인']) {
+    assert.equal(isBlockedName(n), true, n);
+  }
+  for (const n of ['김하늘', '이서준', '박지우', '최예린']) {
+    assert.equal(isBlockedName(n), false, n);
+  }
+});
+
+test('금지어 목록: 이름 음절로 실제로 만들어질 수 있는 위험한 말을 모두 포함', () => {
+  // 성 끝 글자 또는 이름 음절 + 이름 음절로 만들어질 수 있는 말 중 위험한 것 (2026-11-28 점검)
+  const reachable = [
+    '성기', '보지', '고환', '성인', '명기', '오나', '변태', '수유', '모유', '임산', '변기', '변소', '배설', '지린',
+    '가래', '구린', '구리', '노예', '하인', '천민', '고아', '노인', '백인', '황인', '운지', '공산', '도라', '재수',
+    '추하', '추태', '고래', '모기', '기린', '염소', '여우', '여시', '오리', '소주', '양주', '탁주', '주정', '구라',
+    '호로', '호래', '동정', '배란', '천한', '빈민', '노화', '노가다', '전범', '강도', '범인', '원수', '인민', '하수',
+    '추한', '가라', '별로', '아기', '아가', '유아', '동성',
+  ];
+  for (const w of reachable) assert.ok((BLOCKED_NAME_PARTS as readonly string[]).includes(w), w);
 });
 
 test('랜덤 이름: 매번 다르게 나옴 (1000번 중 겹침이 드묾)', () => {
